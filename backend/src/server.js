@@ -6,7 +6,7 @@ const path = require('path');
 
 // Load our settings (port, database details, secret keys) from the .env file.
 // It's in .gitignore so our secrets never get pushed to GitHub.
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env'), quite: true });
 
 const app = require('./app');
 
