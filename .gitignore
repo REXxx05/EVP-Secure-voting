@@ -147,3 +147,25 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Secrets and keys (encryption keys, signing keys, MFA secrets)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+keys/
+certs/
+
+# Local database data and dumps
+pgdata/
+*.sql.gz
+*.dump
+*.sqlite
+
+# OS and editor files
+.DS_Store
+.vscode/
+.idea/
