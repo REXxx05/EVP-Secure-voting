@@ -7,7 +7,7 @@ const path = require('path');
 const { Pool } = require('pg');
 
 // Load the .env file (two folders up from here) so we have the DB details
-require('dotenv').config({ path: path.resolve(__dirname, '../../../.env'), quite: true });
+require('dotenv').config({ path: path.resolve(__dirname, '../../../.env'), quiet: true });
 
 // A "pool" keeps a few connections open and reuses them,
 // which is faster than opening a new connection for every request.
