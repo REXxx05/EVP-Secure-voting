@@ -17,11 +17,13 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12;   // 12 random bytes is the recommended IV size for GCM
 const TAG_LENGTH = 16;  // GCM auth tag is 16 bytes
 
-// Which key we use for NEW data.
-// For key rotation (every 90 days), we add DATA_ENCRYPTION_KEY_V2 to .env
-// and change this to 2. Old data still decrypts with key 1 because
-// every encrypted value remembers which key version it used.
-const CURRENT_KEY_VERSION = 1;
+// Which key we use for NEW data. It's read from .env so we can rotate keys
+// without changing the code. If it's not set, we use version 1.
+// To rotate: add DATA_ENCRYPTION_KEY_V2 to .env, set DATA_ENCRYPTION_KEY_VERSION=2,
+// then run scripts/rotate-keys.js
+function getCurrentKeyVersion() {
+  return Number(process.env.DATA_ENCRYPTION_KEY_VERSION || 1);
+}
 
 // Gets the key for a version from .env and checks it's the right size
 function getKey(version) {
@@ -52,7 +54,8 @@ function encrypt(plainText) {
     return null;
   }
 
-  const key = getKey(CURRENT_KEY_VERSION);
+  const version = getCurrentKeyVersion();
+  const key = getKey(version);
 
   // A new random IV every time, so encrypting the same text twice
   // gives different results (stops people spotting matching values)
@@ -66,7 +69,7 @@ function encrypt(plainText) {
   const tag = cipher.getAuthTag();
 
   return [
-    CURRENT_KEY_VERSION,
+    version,
     iv.toString('base64'),
     tag.toString('base64'),
     encrypted.toString('base64')
@@ -109,4 +112,9 @@ function decrypt(encryptedText) {
   return decrypted.toString('utf8');
 }
 
-module.exports = { encrypt, decrypt, CURRENT_KEY_VERSION };
+// Used for key rotation: reads data encrypted with an OLD key
+// and encrypts it again with the CURRENT key
+function reencrypt(encryptedText) {
+  return encrypt(decrypt(encryptedText));
+}
+module.exports = { encrypt, decrypt, reencrypt, getCurrentKeyVersion };

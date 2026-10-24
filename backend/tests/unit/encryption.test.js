@@ -66,3 +66,38 @@ describe('SR-09 encryption at rest', () => {
   });
 
 });
+
+// ---- Key rotation tests (SR-09: keys rotated every 90 days) ----
+const crypto = require('crypto');
+const { reencrypt } = require('../../src/security/encryption');
+
+describe('SR-09 key rotation', () => {
+
+  // Remove the test key settings after each test so other tests aren't affected
+  afterEach(() => {
+    delete process.env.DATA_ENCRYPTION_KEY_V2;
+    delete process.env.DATA_ENCRYPTION_KEY_VERSION;
+  });
+
+  it('re-encrypts old data with the new key and it still decrypts', () => {
+    const oldValue = encrypt('12 Swanston St');        // made with key 1
+
+    // pretend we've rotated to a new key 2
+    process.env.DATA_ENCRYPTION_KEY_V2 = crypto.randomBytes(32).toString('base64');
+    process.env.DATA_ENCRYPTION_KEY_VERSION = '2';
+
+    const newValue = reencrypt(oldValue);
+
+    expect(newValue.split(':')[0]).toBe('2');           // now uses key 2
+    expect(decrypt(newValue)).toBe('12 Swanston St');   // same original text
+  });
+
+  it('can still read old data during rotation', () => {
+    const oldValue = encrypt('old data');               // key 1
+    process.env.DATA_ENCRYPTION_KEY_V2 = crypto.randomBytes(32).toString('base64');
+    process.env.DATA_ENCRYPTION_KEY_VERSION = '2';
+
+    expect(decrypt(oldValue)).toBe('old data');         // key 1 still works
+  });
+
+});
