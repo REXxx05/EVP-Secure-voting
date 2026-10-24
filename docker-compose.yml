@@ -1,0 +1,33 @@
+# docker-compose.yml
+# Runs our PostgreSQL database in Docker, so everyone in the team
+# gets the same database setup with one command: docker compose up -d
+
+services:
+  db:
+    image: postgres:16              # official PostgreSQL version 16
+    container_name: evp-db
+    restart: unless-stopped
+
+    # These come from our .env file (never hard-coded here)
+    environment:
+      POSTGRES_USER: ${DB_ADMIN_USER}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+      # details for the limited app user , used by 02_roles.sh
+      APP_DB_USER: ${DB_USER}
+      APP_DB_PASSWORD: ${DB_PASSWORD}
+
+    # Only open the port on our own machine (127.0.0.1),
+    # so other devices on the wifi can't connect to the database
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    volumes:
+      # Keeps the data saved even if the container is restarted
+      - pgdata:/var/lib/postgresql/data
+      # Any .sql files in our database folder run automatically
+      # the first time the database is created (tables, roles, test data)
+      - ./database:/docker-entrypoint-initdb.d:ro
+
+volumes:
+  pgdata:
