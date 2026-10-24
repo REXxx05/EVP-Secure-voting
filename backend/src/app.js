@@ -11,9 +11,14 @@ const path = require('path');
 const app = express();
 
 // helmet adds a bunch of security headers to every response.
-// e.g. HSTS (forces HTTPS), nosniff, and stops our pages being put in iframes.
-// This is part of SR-10 (encryption in transit).
-app.use(helmet());
+// HSTS (SR-10) tells the browser to ONLY ever use HTTPS for our site
+// for the next year, even if someone types http:// or clicks an http link.
+app.use(helmet({
+  hsts: {
+    maxAge: 31536000,        // 1 year in seconds
+    includeSubDomains: true
+  }
+}));
 
 // Lets express read JSON from request bodies.
 // We set a 10kb limit so someone can't send a huge request to slow the server down.
