@@ -1,0 +1,146 @@
+/* style.css
+   Shared styling for every page.
+   Inspired by government service websites */
+
+/* ---- Basics ---- */
+body {
+  margin: 0;
+  font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  font-size: 19px;          /* gov sites use bigger text so it's easy to read */
+  line-height: 1.5;
+  color: #0b0c0c;
+  background: #ffffff;
+}
+
+/* Keeps content in one narrow column so lines aren't too long to read */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ---- Skip link: hidden until someone tabs to it ---- */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+}
+.skip-link:focus {
+  left: 10px;
+  top: 10px;
+  background: #ffdd00;
+  color: #0b0c0c;
+  padding: 10px;
+}
+
+/* ---- Header ---- */
+.site-header {
+  background: #0b0c0c;
+  color: #ffffff;
+  border-bottom: 10px solid #1d70b8;   /* blue strip under the header */
+}
+.site-header .container {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+.site-name {
+  color: #ffffff;
+  font-weight: bold;
+  font-size: 28px;
+  text-decoration: none;
+}
+.service-name {
+  font-size: 20px;
+}
+
+/* ---- Phase banner ---- */
+.phase-banner {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #b1b4b6;
+  font-size: 16px;
+}
+.tag {
+  background: #1d70b8;
+  color: #ffffff;
+  padding: 2px 8px;
+  margin-right: 10px;
+  letter-spacing: 1px;
+}
+
+/* ---- Text ---- */
+main {
+  padding-top: 30px;
+  padding-bottom: 50px;
+}
+h1 {
+  font-size: 40px;
+  line-height: 1.1;
+  margin: 0 0 25px;
+}
+h2 {
+  font-size: 27px;
+  margin: 35px 0 15px;
+}
+.lead {
+  font-size: 22px;
+}
+.small {
+  font-size: 16px;
+  color: #505a5f;
+  margin-top: 40px;
+}
+a {
+  color: #1d70b8;
+}
+
+/* ---- Buttons: flat green with a dark bottom edge (very common on gov sites) ---- */
+.button {
+  display: inline-block;
+  background: #00703c;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: bold;
+  padding: 10px 20px;
+  border: none;
+  box-shadow: 0 3px 0 #002d18;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button:hover {
+  background: #005a30;
+}
+
+/* ---- Focus outline: thick yellow so keyboard users can see where they are ---- */
+a:focus,
+.button:focus,
+input:focus,
+select:focus {
+  outline: 3px solid #ffdd00;
+  outline-offset: 0;
+  box-shadow: 0 -2px #ffdd00, 0 4px #0b0c0c;
+}
+
+/* ---- Errors ---- */
+.error {
+  color: #d4351c;
+  font-weight: bold;
+}
+
+/* ---- Footer ---- */
+.site-footer {
+  background: #f3f2f1;
+  border-top: 1px solid #b1b4b6;
+  padding: 25px 0;
+  font-size: 16px;
+}
+.site-footer a {
+  margin-right: 20px;
+  color: #0b0c0c;
+}
+.site-footer p {
+  color: #505a5f;
+  margin-bottom: 0;
+}

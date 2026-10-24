@@ -6,6 +6,7 @@
 const express = require('express');
 const helmet = require('helmet');
 const db = require('./config/db');
+const path = require('path');
 
 const app = express();
 
@@ -17,6 +18,10 @@ app.use(helmet());
 // Lets express read JSON from request bodies.
 // We set a 10kb limit so someone can't send a huge request to slow the server down.
 app.use(express.json({ limit: '10kb' }));
+
+// Serve our frontend files (HTML, CSS, JS) from the frontend folder.
+// So http://localhost:3000/ opens frontend/index.html
+app.use(express.static(path.join(__dirname, '../../frontend')));
 
 // Simple route to check the API is running.
 // If you go to http://localhost:3000/api/health you should see {"status":"ok"}

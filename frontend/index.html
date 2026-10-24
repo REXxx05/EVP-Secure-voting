@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!-- index.html - home page of the EVP.
+     Layout is inspired by government service sites -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Electronic Voting Platform</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Lets keyboard and screen reader users jump straight past the header -->
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container">
+      <a href="/" class="site-name">EVP</a>
+      <span class="service-name">Electronic Voting Platform</span>
+    </div>
+  </header>
+
+  <!-- Phase banner, like real gov services use while something is still being built -->
+  <div class="container phase-banner">
+    <strong class="tag">PROTOTYPE</strong>
+    <span>This is a student project. Do not enter real personal details.</span>
+  </div>
+
+  <main id="main" class="container">
+    <h1>Vote in the 2026 Test Federal Election</h1>
+
+    <p class="lead">Use this service to cast your vote online for the House of Representatives and the Senate.</p>
+
+    <h2>Before you start</h2>
+    <ul>
+      <li>you must be enrolled to vote in your division</li>
+      <li>you can only vote once</li>
+      <li>your vote is secret, and no one can see who you voted for</li>
+    </ul>
+
+    <a href="/login.html" class="button">Start now</a>
+
+    <p class="small">API status: <span id="api-status">checking...</span></p>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <a href="#">Privacy</a>
+      <a href="#">Accessibility</a>
+      <a href="#">Help</a>
+      <p>COSC2539 Group Assignment 3, student prototype</p>
+    </div>
+  </footer>
+
+  <!-- All JavaScript is in separate files, never inline.
+       Our Content Security Policy (from helmet) blocks inline scripts, which helps stop XSS. -->
+  <script src="js/api.js"></script>
+  <script src="js/home.js"></script>
+</body>
+</html>
