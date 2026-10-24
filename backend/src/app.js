@@ -5,6 +5,7 @@
 
 const express = require('express');
 const helmet = require('helmet');
+const db = require('./config/db');
 
 const app = express();
 
@@ -21,6 +22,16 @@ app.use(express.json({ limit: '10kb' }));
 // If you go to http://localhost:3000/api/health you should see {"status":"ok"}
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+// Checks the backend can actually talk to the database
+app.get('/api/health/db', async (req, res, next) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ database: 'ok' });
+  } catch (err) {
+    next(err);   // sends it to our error handler at the bottom
+  }
 });
 
 // If someone asks for a route that doesn't exist, just send back 404.
