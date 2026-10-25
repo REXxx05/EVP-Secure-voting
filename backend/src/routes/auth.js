@@ -6,12 +6,14 @@ const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
 const { verifyPassword } = require('../security/password');
 const requireAuth = require('../middleware/requireAuth');
+const { loginIpLimiter, loginAccountLimiter } = require('../middleware/rateLimiters');
+
 
 const router = express.Router();
 
 // POST /api/auth/login
 // Body: { username, password }
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginIpLimiter, loginAccountLimiter, async (req, res, next) => {
   try {
     const { username, password } = req.body || {};
 

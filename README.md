@@ -118,3 +118,14 @@ bash database/setup/create_roles.sh
 ```
 If the backend needs access to your new table, add a GRANT for it in `database/setup/roles.sql`.
 
+## Rate limiting (SR-19)
+
+The API limits how many requests one client can make, so a flood or a password-guessing attack cannot stop real voters. Blocked requests get HTTP 429.
+
+| Limiter | What it counts | Default limit | Setting in `.env` |
+| --- | --- | --- | --- |
+| API | all `/api` requests per IP address | 300 per minute | `RATE_LIMIT_API_MAX` |
+| Login, per IP | login attempts per IP address | 30 per 15 minutes | `RATE_LIMIT_LOGIN_IP_MAX` |
+| Login, per account | failed logins per username | 10 per 15 minutes | `RATE_LIMIT_LOGIN_ACCOUNT_MAX` |
+
+The settings are optional. If they are missing, the defaults above are used. The limiters live in `backend/src/middleware/rateLimiters.js` and are tested in `backend/tests/unit/rateLimiters.test.js` and `backend/tests/integration/rateLimit.test.js`.
