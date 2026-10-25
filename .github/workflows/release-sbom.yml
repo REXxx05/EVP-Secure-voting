@@ -1,0 +1,76 @@
+# SR-20: every release gets a signed Software Bill of Materials.
+# On a published release this workflow:
+#   1. re-runs the CVSS >= 7.0 dependency gate (a vulnerable release cannot ship)
+#   2. generates a CycloneDX SBOM from the release's lockfile
+#   3. signs it with Sigstore cosign "keyless" signing (GitHub OIDC identity: no signing
+#      key or secret exists anywhere in the repository)
+#   4. VERIFIES the signature against this workflow's identity, and checks that a
+#      modified copy of the SBOM fails verification
+#   5. attaches the SBOM, signature bundle and checksum to the release
+# Consumers verify with: scripts/verify-sbom.sh (see docs/ci-security.md).
+name: Release SBOM
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  signed-sbom:
+    name: Signed SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # attach assets to the release
+      id-token: write   # keyless signing identity (OIDC)
+    env:
+      SBOM: sbom.cdx.json
+      BUNDLE: sbom.cdx.json.sigstore.json
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+      - name: Dependency gate (CVSS >= 7.0 fails the release)
+        working-directory: backend
+        run: |
+          npm audit --json > "$RUNNER_TEMP/audit.json" || true
+          node scripts/check-audit.js "$RUNNER_TEMP/audit.json"
+      - name: Generate SBOM
+        working-directory: backend
+        run: npm sbom --package-lock-only --sbom-format cyclonedx > "$GITHUB_WORKSPACE/$SBOM"
+      - uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      - name: Sign SBOM
+        run: cosign sign-blob --yes --bundle "$BUNDLE" "$SBOM"
+      - name: Verify signature and reject a tampered SBOM
+        run: |
+          cosign verify-blob "$SBOM" --bundle "$BUNDLE" \
+            --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/\.github/workflows/release-sbom\.yml@" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cp "$SBOM" "$RUNNER_TEMP/tampered.json"
+          echo " " >> "$RUNNER_TEMP/tampered.json"
+          if cosign verify-blob "$RUNNER_TEMP/tampered.json" --bundle "$BUNDLE" \
+              --certificate-identity-regexp "^https://github.com/${GITHUB_REPOSITORY}/\.github/workflows/release-sbom\.yml@" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com; then
+            echo "A tampered SBOM verified - signing check is broken" >&2
+            exit 1
+          fi
+      - name: Checksum
+        run: sha256sum "$SBOM" > "$SBOM.sha256"
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "$SBOM" "$BUNDLE" "$SBOM.sha256" --clobber
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-sbom
+          path: |
+            sbom.cdx.json
+            sbom.cdx.json.sigstore.json
+            sbom.cdx.json.sha256
