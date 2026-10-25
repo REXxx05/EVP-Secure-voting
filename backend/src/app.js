@@ -7,6 +7,7 @@ const express = require('express');
 const helmet = require('helmet');
 const db = require('./config/db');
 const path = require('path');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 
@@ -43,6 +44,9 @@ app.get('/api/health/db', async (req, res, next) => {
     next(err);   // sends it to our error handler at the bottom
   }
 });
+
+// SR-01, SR-04: login, logout and session handling
+app.use('/api/auth', authRoutes);
 
 // If someone asks for a route that doesn't exist, just send back 404.
 app.use((req, res) => {
