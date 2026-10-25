@@ -7,8 +7,8 @@
 
 INSERT INTO users (username, password_hash, role, failed_logins, locked_until)
 VALUES
-  ('voter1', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'voter', 0, NULL),
-  ('voter2', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'voter', 0, NULL),
-  ('admin1', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'admin', 0, NULL),
-  ('auditor1', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'auditor', 0, NULL)
+  ('voter1', '$argon2id$v=19$m=65536,p=4,t=3$MOK6AM6WN4TyfbDItoHnxQ$YE7PvlwT6keTpuSX4GlS5GBy2kEr4K0pjLryipkavgQ', 'voter', 0, NULL),
+  ('voter2', '$argon2id$v=19$m=65536,p=4,t=3$MOK6AM6WN4TyfbDItoHnxQ$YE7PvlwT6keTpuSX4GlS5GBy2kEr4K0pjLryipkavgQ', 'voter', 0, NULL),
+  ('admin1', '$argon2id$v=19$m=65536,p=4,t=3$MOK6AM6WN4TyfbDItoHnxQ$YE7PvlwT6keTpuSX4GlS5GBy2kEr4K0pjLryipkavgQ', 'admin', 0, NULL),
+  ('auditor1', '$argon2id$v=19$m=65536,p=4,t=3$MOK6AM6WN4TyfbDItoHnxQ$YE7PvlwT6keTpuSX4GlS5GBy2kEr4K0pjLryipkavgQ', 'auditor', 0, NULL)
 ON CONFLICT (username) DO NOTHING;
