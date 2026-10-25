@@ -9,6 +9,7 @@ async function purgeElectionBallots(electionId) {
   try {
     await client.query('BEGIN');
     await client.query("SET LOCAL session_replication_role = 'replica'");
+    await client.query('DELETE FROM bulletin_board WHERE election_id = $1', [electionId]);
     await client.query('DELETE FROM ballot_hashes WHERE election_id = $1', [electionId]);
     await client.query('DELETE FROM ballots WHERE election_id = $1', [electionId]);
     await client.query('COMMIT');

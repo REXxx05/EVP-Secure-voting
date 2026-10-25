@@ -4,6 +4,7 @@ const { pool: defaultPool } = require('../config/db');
 const { checkEligibility: defaultEligibility } = require('./eligibilityService');
 const { saveBallotAnonymously: defaultStorage } = require('./ballotStorage');
 const { recordBallotHash: defaultRecordHash } = require('./ballotIntegrity');
+const { issueReceipt: defaultIssueReceipt } = require('./receipts');
 
 class SubmissionError extends Error {
   constructor(code, message, options) {
@@ -18,6 +19,7 @@ function createBallotSubmission({
   checkEligibility = defaultEligibility,
   saveBallotAnonymously = defaultStorage,
   recordBallotHash = defaultRecordHash,
+  issueReceipt = defaultIssueReceipt,
   validateBallots,
   finalizeSession
 } = {}) {
@@ -87,6 +89,11 @@ function createBallotSubmission({
       // written in this same transaction; any failure here rolls everything back.
       await recordBallotHash(client, houseId);
       await recordBallotHash(client, senateId);
+      // SR-12: signed anonymous receipt, recorded on the bulletin board in the
+      // same transaction. It only depends on the election and the two ballot ids.
+      const receipt = await issueReceipt(client, {
+        electionId, houseBallotId: houseId, senateBallotId: senateId
+      });
       if (finalizeSession) {
         // Route integration supplies SR-04's transaction-compatible implementation.
         // It must verify session ownership/validity and invalidate using THIS client.
@@ -103,7 +110,7 @@ function createBallotSubmission({
         discardClient = true;
         throw new SubmissionError('TRANSACTION_NOT_COMMITTED', 'Submission transaction did not commit');
       }
-      return { accepted: true };
+      return { accepted: true, receipt };
     } catch (originalError) {
       if (!transactionStarted || commitAttempted) discardClient = true;
       let failure = originalError;

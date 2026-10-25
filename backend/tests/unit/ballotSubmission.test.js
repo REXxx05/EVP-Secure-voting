@@ -9,10 +9,11 @@ function setup() {
   const eligibility = jest.fn().mockResolvedValue({ eligible: true, electionId: 2, divisionId: 3 });
   const storage = jest.fn().mockResolvedValue('anonymous-uuid');
   const validate = jest.fn().mockResolvedValue(true);
+  const issueReceipt = jest.fn().mockResolvedValue({ verificationCode: 'test-receipt' });
   const recordHash = jest.fn().mockResolvedValue('0'.repeat(64));
   const submit = createBallotSubmission({ pool, checkEligibility: eligibility,
-    saveBallotAnonymously: storage, recordBallotHash: recordHash, validateBallots: validate });
-  return { client, pool, eligibility, storage, validate, recordHash, submit };
+    saveBallotAnonymously: storage, recordBallotHash: recordHash, issueReceipt, validateBallots: validate });
+  return { client, pool, eligibility, storage, validate, recordHash, issueReceipt, submit };
 }
 afterAll(() => db.pool.end());
 
@@ -21,7 +22,7 @@ test('requires an explicitly configured validator', () => {
 });
 test('uses one client, locked eligibility and anonymous storage; commits before acceptance', async () => {
   const s = setup();
-  await expect(s.submit(input)).resolves.toEqual({ accepted: true });
+  await expect(s.submit(input)).resolves.toMatchObject({ accepted: true });
   expect(s.pool.connect).toHaveBeenCalledTimes(1);
   expect(s.eligibility).toHaveBeenCalledWith(1, 2, { client: s.client, lock: true });
   expect(s.storage.mock.calls.map(c => c[1])).toEqual([
@@ -115,7 +116,7 @@ test('does not resolve acceptance or release while COMMIT is pending', async () 
   const result = s.submit(input).then(value => { accepted = true; return value; });
   await entered;
   expect(accepted).toBe(false); expect(s.client.release).not.toHaveBeenCalled();
-  releaseCommit({ command: 'COMMIT' }); await expect(result).resolves.toEqual({ accepted: true });
+  releaseCommit({ command: 'COMMIT' }); await expect(result).resolves.toMatchObject({ accepted: true });
 });
 test('a resolved COMMIT that actually rolled back is not accepted', async () => {
   const s = setup();

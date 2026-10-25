@@ -30,6 +30,11 @@ GRANT SELECT, INSERT ON ballots TO :"app_user";
 -- never change or remove them (a trigger enforces this for every role too).
 GRANT SELECT, INSERT ON ballot_hashes TO :"app_user";
 
+-- SR-12: the public bulletin board. Rows can be added and read; the only column
+-- the app may change is status (accepted -> counted, enforced by a trigger).
+GRANT SELECT, INSERT ON bulletin_board TO :"app_user";
+GRANT UPDATE (status) ON bulletin_board TO :"app_user";
+
 -- SR-08: the app can ADD a "has voted" row but can NOT read the table.
 -- Reading both this and ballots could let someone match voters to ballots.
 -- To check if someone has voted, the app uses has_voted() instead.

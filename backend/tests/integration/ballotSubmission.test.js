@@ -57,7 +57,7 @@ const complete = { participation: 1, house: 1, senate: 1 };
 
 test('accepts one complete pair and rejects a duplicate without additional ballots', async () => {
   const submit = makeSubmit();
-  await expect(submit(input())).resolves.toEqual({ accepted: true });
+  await expect(submit(input())).resolves.toMatchObject({ accepted: true });
   expect(await counts()).toEqual(complete);
   await expect(submit(input())).rejects.toMatchObject({ code: 'ALREADY_VOTED' });
   expect(await counts()).toEqual(complete);
@@ -76,7 +76,7 @@ test('Senate SQL failure rolls back real House and participation writes; retry s
   } });
   await expect(submit(input())).rejects.toMatchObject({ code: '23514' });
   expect(await counts()).toEqual(empty);
-  await expect(makeSubmit()(input())).resolves.toEqual({ accepted: true });
+  await expect(makeSubmit()(input())).resolves.toMatchObject({ accepted: true });
   expect(await counts()).toEqual(complete);
 });
 
@@ -98,7 +98,7 @@ test('transactional finalizer success persists its test marker with both ballots
     await client.query('UPDATE users SET failed_logins = 1 WHERE id = $1', [owner]);
     return true;
   } });
-  await expect(submit({ ...input(), sessionId: 123 })).resolves.toEqual({ accepted: true });
+  await expect(submit({ ...input(), sessionId: 123 })).resolves.toMatchObject({ accepted: true });
   expect(await counts()).toEqual(complete);
   expect((await adminDb.query('SELECT failed_logins FROM users WHERE id = $1', [voterId])).rows[0].failed_logins).toBe(1);
 });
@@ -114,7 +114,7 @@ test('transactional finalizer denial rolls back its test marker and the complete
 });
 
 test('a swallowed SQL failure cannot turn PostgreSQL COMMIT-as-ROLLBACK into acceptance', async () => {
-  const submit = makeSubmit({ recordBallotHash: async () => {}, saveBallotAnonymously: async (client, ballot) => {
+  const submit = makeSubmit({ recordBallotHash: async () => {}, issueReceipt: async () => ({}), saveBallotAnonymously: async (client, ballot) => {
     if (ballot.ballotType === 'senate') {
       // Deliberately broken test collaborator: suppress a real SQL error.
       try { await client.query('SELECT 1 / 0'); } catch { /* test-only swallowed error */ }
@@ -184,9 +184,9 @@ test.each([false, true])('overlapping submissions: first rolls back=%s; exactly 
   expect([a, b].filter(x => x.value && x.value.accepted)).toHaveLength(1);
   if (rollbackFirst) {
     expect(a.error.message).toBe('Injected first Senate failure');
-    expect(b.value).toEqual({ accepted: true });
+    expect(b.value).toMatchObject({ accepted: true });
   } else {
-    expect(a.value).toEqual({ accepted: true });
+    expect(a.value).toMatchObject({ accepted: true });
     expect(b.error.code).toBe('ALREADY_VOTED');
   }
   expect(await counts()).toEqual(complete);

@@ -38,7 +38,7 @@ const hashCount = async () => (await adminDb.query(
 
 test('accepting a vote records a hash for both ballots within one second', async () => {
   const started = Date.now();
-  await expect(submit()(vote())).resolves.toEqual({ accepted: true });
+  await expect(submit()(vote())).resolves.toMatchObject({ accepted: true });
   expect(Date.now() - started).toBeLessThan(1000);
   expect(await hashCount()).toBe(2);
   const rows = (await adminDb.query('SELECT hash FROM ballot_hashes WHERE election_id = $1', [electionId])).rows;
@@ -57,7 +57,7 @@ test('hash failure after both ballots rolls back ballots, hashes and participati
             (SELECT count(*)::int FROM ballot_hashes WHERE election_id = $1) AS h,
             (SELECT count(*)::int FROM voter_participation WHERE election_id = $1) AS p`, [electionId]);
   expect(left.rows[0]).toEqual({ b: 0, h: 0, p: 0 });
-  await expect(submit()(vote())).resolves.toEqual({ accepted: true });
+  await expect(submit()(vote())).resolves.toMatchObject({ accepted: true });
 });
 
 test('untampered ballots pass the tally gate', async () => {
