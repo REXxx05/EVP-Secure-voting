@@ -76,3 +76,50 @@ describe('POST /api/auth/logout', () => {
     expect(res.status).toBe(400);
   });
 });
+
+
+describe('GET /api/auth/me (protected by requireAuth)', () => {
+  async function loginVoter1() {
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'voter1', password: 'Password123!' });
+    return res.body.sessionToken;
+  }
+
+  it('rejects a request with no token', async () => {
+    const res = await request(app).get('/api/auth/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('allows a valid session', async () => {
+    const token = await loginVoter1();
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('x-session-token', token);
+    expect(res.status).toBe(200);
+    expect(res.body.userId).toBeDefined();
+  });
+
+  it('rejects the token after logout (token cannot be reused)', async () => {
+    const token = await loginVoter1();
+    await request(app).post('/api/auth/logout').set('x-session-token', token);
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('x-session-token', token);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects an expired token', async () => {
+    const token = await loginVoter1();
+    await pool.query(
+      "UPDATE sessions SET expires_at = now() - interval '1 minute' WHERE token = $1",
+      [token]
+    );
+
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('x-session-token', token);
+    expect(res.status).toBe(401);
+  });
+});

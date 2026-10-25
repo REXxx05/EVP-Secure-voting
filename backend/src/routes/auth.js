@@ -5,6 +5,7 @@ const express = require('express');
 const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
 const { verifyPassword } = require('../security/password');
+const requireAuth = require('../middleware/requireAuth');
 
 const router = express.Router();
 
@@ -77,6 +78,12 @@ router.post('/logout', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+// GET /api/auth/me
+// SR-04: a protected route. Only a valid, non-expired session gets through.
+router.get('/me', requireAuth, (req, res) => {
+  res.json({ userId: req.session.user_id });
 });
 
 module.exports = router;
