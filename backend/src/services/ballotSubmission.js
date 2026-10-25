@@ -3,6 +3,7 @@
 const { pool: defaultPool } = require('../config/db');
 const { checkEligibility: defaultEligibility } = require('./eligibilityService');
 const { saveBallotAnonymously: defaultStorage } = require('./ballotStorage');
+const { recordBallotHash: defaultRecordHash } = require('./ballotIntegrity');
 
 class SubmissionError extends Error {
   constructor(code, message, options) {
@@ -16,6 +17,7 @@ function createBallotSubmission({
   pool = defaultPool,
   checkEligibility = defaultEligibility,
   saveBallotAnonymously = defaultStorage,
+  recordBallotHash = defaultRecordHash,
   validateBallots,
   finalizeSession
 } = {}) {
@@ -79,8 +81,12 @@ function createBallotSubmission({
 
       // Deliberately pass no identity/session fields to anonymous storage or the validator.
       const context = { electionId, divisionId: eligibility.divisionId };
-      await saveBallotAnonymously(client, { ...context, ballotType: 'house', ballotData: house });
-      await saveBallotAnonymously(client, { ...context, ballotType: 'senate', ballotData: senate });
+      const houseId = await saveBallotAnonymously(client, { ...context, ballotType: 'house', ballotData: house });
+      const senateId = await saveBallotAnonymously(client, { ...context, ballotType: 'senate', ballotData: senate });
+      // SR-11: the ballots are only confirmed once both integrity hashes are
+      // written in this same transaction; any failure here rolls everything back.
+      await recordBallotHash(client, houseId);
+      await recordBallotHash(client, senateId);
       if (finalizeSession) {
         // Route integration supplies SR-04's transaction-compatible implementation.
         // It must verify session ownership/validity and invalidate using THIS client.

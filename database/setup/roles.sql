@@ -26,6 +26,10 @@ GRANT SELECT, INSERT, UPDATE ON users, enrolments TO :"app_user";
 -- No UPDATE or DELETE, so a vote can never be changed or removed once saved.
 GRANT SELECT, INSERT ON ballots TO :"app_user";
 
+-- SR-11: integrity hashes are append-only: the app can add and read them,
+-- never change or remove them (a trigger enforces this for every role too).
+GRANT SELECT, INSERT ON ballot_hashes TO :"app_user";
+
 -- SR-08: the app can ADD a "has voted" row but can NOT read the table.
 -- Reading both this and ballots could let someone match voters to ballots.
 -- To check if someone has voted, the app uses has_voted() instead.

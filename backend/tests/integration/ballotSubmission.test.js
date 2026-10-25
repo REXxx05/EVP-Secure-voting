@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const db = require('../../src/config/db');
 const adminDb = require('../helpers/adminDb');
+const { purgeElectionBallots } = require('../helpers/fixtures');
 const { createBallotSubmission } = require('../../src/services/ballotSubmission');
 const { saveBallotAnonymously } = require('../../src/services/ballotStorage');
 
@@ -31,7 +32,7 @@ beforeEach(async () => {
 afterEach(async () => {
   // Scope every cleanup to this test's generated fixture; never reset the database/volume.
   if (electionId) {
-    await adminDb.query('DELETE FROM ballots WHERE election_id = $1', [electionId]);
+    await purgeElectionBallots(electionId);
     await adminDb.query('DELETE FROM voter_participation WHERE election_id = $1', [electionId]);
     await adminDb.query('DELETE FROM enrolments WHERE election_id = $1', [electionId]);
     await adminDb.query('DELETE FROM elections WHERE id = $1', [electionId]);
@@ -113,10 +114,10 @@ test('transactional finalizer denial rolls back its test marker and the complete
 });
 
 test('a swallowed SQL failure cannot turn PostgreSQL COMMIT-as-ROLLBACK into acceptance', async () => {
-  const submit = makeSubmit({ saveBallotAnonymously: async (client, ballot) => {
+  const submit = makeSubmit({ recordBallotHash: async () => {}, saveBallotAnonymously: async (client, ballot) => {
     if (ballot.ballotType === 'senate') {
       // Deliberately broken test collaborator: suppress a real SQL error.
-      try { await client.query('SELECT 1 / 0'); } catch (_) { /* test-only swallowed error */ }
+      try { await client.query('SELECT 1 / 0'); } catch { /* test-only swallowed error */ }
       return;
     }
     return saveBallotAnonymously(client, ballot);

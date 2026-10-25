@@ -9,9 +9,10 @@ function setup() {
   const eligibility = jest.fn().mockResolvedValue({ eligible: true, electionId: 2, divisionId: 3 });
   const storage = jest.fn().mockResolvedValue('anonymous-uuid');
   const validate = jest.fn().mockResolvedValue(true);
+  const recordHash = jest.fn().mockResolvedValue('0'.repeat(64));
   const submit = createBallotSubmission({ pool, checkEligibility: eligibility,
-    saveBallotAnonymously: storage, validateBallots: validate });
-  return { client, pool, eligibility, storage, validate, submit };
+    saveBallotAnonymously: storage, recordBallotHash: recordHash, validateBallots: validate });
+  return { client, pool, eligibility, storage, validate, recordHash, submit };
 }
 afterAll(() => db.pool.end());
 
