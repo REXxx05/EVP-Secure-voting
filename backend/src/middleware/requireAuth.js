@@ -18,7 +18,9 @@ async function requireAuth(req, res, next) {
     // Active users stay logged in: push the 30-minute idle timeout forward
     await sessionModel.touchSession(session.id);
 
-    req.session = session; // later code can read who is logged in
+    req.session = session;
+    // The rest of the app expects the logged-in user here: { id, role }
+    req.user = { id: session.user_id, role: session.role };
     next();
   } catch (err) {
     next(err);

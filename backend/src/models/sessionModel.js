@@ -29,11 +29,12 @@ async function createSession(userId) {
 // matching, non-invalidated, non-expired session - callers treat that as "not logged in".
 async function findValidSession(token) {
   const result = await db.query(
-    `SELECT id, user_id, expires_at
-     FROM sessions
-     WHERE token = $1
-       AND invalidated = FALSE
-       AND expires_at > now()`,
+    `SELECT s.id, s.user_id, s.expires_at, u.role
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token = $1
+       AND s.invalidated = FALSE
+       AND s.expires_at > now()`,
     [token]
   );
 

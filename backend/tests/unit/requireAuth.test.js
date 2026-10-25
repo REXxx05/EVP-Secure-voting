@@ -41,7 +41,7 @@ describe('requireAuth middleware', () => {
   });
 
   it('lets a valid session through and extends its timeout', async () => {
-    sessionModel.findValidSession.mockResolvedValue({ id: 7, user_id: 3 });
+    sessionModel.findValidSession.mockResolvedValue({ id: 7, user_id: 3, role: 'voter' });
     const req = { headers: { 'x-session-token': 'good-token' } };
     const res = mockRes();
     const next = jest.fn();
@@ -49,7 +49,8 @@ describe('requireAuth middleware', () => {
     await requireAuth(req, res, next);
 
     expect(sessionModel.touchSession).toHaveBeenCalledWith(7);
-    expect(req.session).toEqual({ id: 7, user_id: 3 });
+    expect(req.session).toEqual({ id: 7, user_id: 3, role: 'voter' });
+    expect(req.user).toEqual({ id: 3, role: 'voter' });
     expect(next).toHaveBeenCalled();
   });
 });
