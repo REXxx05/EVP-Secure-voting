@@ -106,3 +106,47 @@ describe('SR-05 voter eligibility', () => {
   });
 
 });
+
+// ---- Using SR-05 inside SR-06's transaction (with row locking) ----
+describe('SR-05 inside a voting transaction', () => {
+
+  test('works with a transaction client and lock', async () => {
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await checkEligibility(enrolledVoter, OPEN_ELECTION, { client: client, lock: true });
+      expect(result.eligible).toBe(true);
+      expect(result.divisionId).toBe(MELBOURNE);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
+  test('admin cannot close the election while a vote is in progress', async () => {
+    const voteClient = await db.pool.connect();
+    const adminClient = await adminDb.connect();
+    try {
+      // a voter's transaction checks eligibility and locks the election
+      await voteClient.query('BEGIN');
+      await checkEligibility(enrolledVoter, OPEN_ELECTION, { client: voteClient, lock: true });
+
+      // meanwhile an admin tries to close the election.
+      // it should have to wait, so we give up after half a second
+      await adminClient.query("SET lock_timeout = '500ms'");
+      await expect(
+        adminClient.query("UPDATE elections SET status = 'closed' WHERE id = $1", [OPEN_ELECTION])
+      ).rejects.toThrow('lock timeout');
+    } finally {
+      await voteClient.query('ROLLBACK');
+      voteClient.release();
+      adminClient.release();
+    }
+  });
+
+  test('asking for a lock without a transaction is not allowed', async () => {
+    await expect(checkEligibility(enrolledVoter, OPEN_ELECTION, { lock: true }))
+      .rejects.toThrow('lock needs a transaction client');
+  });
+
+});
