@@ -1,4 +1,5 @@
 // SR-01: Voter/admin login.
+// SR-04: Session issuance and logout.
 
 const express = require('express');
 const userModel = require('../models/userModel');
@@ -20,7 +21,8 @@ router.post('/login', async (req, res, next) => {
     const user = await userModel.findByUsername(username);
 
     // Same error message whether the username doesn't exist or the
-    // password is wrong, so an attacker can't use this endpoint to find out which usernames are real.
+    // password is wrong, so an attacker can't use this endpoint to
+    // find out which usernames are real.
     const invalidCredentials = () =>
       res.status(401).json({ error: 'Invalid username or password' });
 
@@ -49,6 +51,29 @@ router.post('/login', async (req, res, next) => {
     const sessionToken = await sessionModel.createSession(user.id);
 
     res.json({ userId: user.id, role: user.role, sessionToken });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/auth/logout
+// SR-04: invalidates the session immediately rather than waiting for
+// it to expire, so a submitted ballot's token can't be reused.
+router.post('/logout', async (req, res, next) => {
+  try {
+    const sessionToken = req.headers['x-session-token'];
+    if (!sessionToken) {
+      return res.status(400).json({ error: 'Missing session token' });
+    }
+
+    const session = await sessionModel.findValidSession(sessionToken);
+    if (session) {
+      await sessionModel.invalidateSession(session.id);
+    }
+
+    // Logging out an already-invalid token isn't an error - the end
+    // result (no valid session) is the same either way.
+    res.json({ loggedOut: true });
   } catch (err) {
     next(err);
   }
