@@ -28,10 +28,21 @@ router.post('/login', async (req, res, next) => {
       return invalidCredentials();
     }
 
+    // Account locked from too many recent failed attempts (SR-01):
+    // reject even a correct password until the lockout expires.
+    if (userModel.isLocked(user)) {
+      return res.status(401).json({
+        error: `Account locked. Try again in ${userModel.LOCKOUT_MINUTES} minutes.`
+      });
+    }
+
     const passwordOk = await verifyPassword(password, user.password_hash);
     if (!passwordOk) {
+      await userModel.recordFailedLogin(user.id);
       return invalidCredentials();
     }
+
+    await userModel.clearFailedLogins(user.id);
 
     // SR-04: issue a fresh session token - this is what the client
     // sends back on every later request to prove it's still logged in.
