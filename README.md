@@ -12,8 +12,8 @@ It's a student prototype, so all the data in it is fake test data.
 |------|--------|-----|
 | Yashvardhan Gharge | REXxx05 | SR-02, SR-05, SR-08, SR-09, SR-10 |
 | Dhanush | | SR-01, SR-03, SR-04, SR-07, SR-19 |
-| shambhu | SR-06, SR-11, SR-12, SR-15, SR-20 |
-| vinuthna | SR-13, SR-14, SR-16, SR-17, SR-18 |
+| shambhu |  | | SR-13, SR-14, SR-16, SR-17, SR-18 
+| vinuthna | Vinuthna1R | | SR-06, SR-11, SR-12, SR-15, SR-20 |
 
 Each SR has its own GitHub Issue with the full details and acceptance criteria.
 
