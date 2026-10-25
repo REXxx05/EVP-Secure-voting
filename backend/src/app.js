@@ -9,6 +9,7 @@ const db = require('./config/db');
 const path = require('path');
 const authRoutes = require('./routes/auth');
 const { createBulletinBoardRouter } = require('./routes/bulletinBoard');
+const { apiLimiter } = require('./middleware/rateLimiters');
 
 const app = express();
 
@@ -29,6 +30,10 @@ app.use(express.json({ limit: '10kb' }));
 // Serve our frontend files (HTML, CSS, JS) from the frontend folder.
 // So http://localhost:3000/ opens frontend/index.html
 app.use(express.static(path.join(__dirname, '../../frontend')));
+
+// SR-19: limit how many API requests one IP address can make per minute.
+// Applied before the routes so every /api route is covered.
+app.use('/api', apiLimiter);
 
 // Simple route to check the API is running.
 // If you go to http://localhost:3000/api/health you should see {"status":"ok"}
