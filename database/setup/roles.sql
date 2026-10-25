@@ -50,3 +50,6 @@ GRANT EXECUTE ON FUNCTION has_voted(INT, INT) TO :"app_user";
 
 -- Needed so INSERTs can use the auto-increment ids
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO :"app_user";
+
+-- SR-04: the app needs to create, read and expire session rows, but never needs to delete the audit trail of past sessions.
+GRANT SELECT, INSERT, UPDATE ON sessions TO :"app_user";

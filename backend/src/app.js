@@ -7,6 +7,7 @@ const express = require('express');
 const helmet = require('helmet');
 const db = require('./config/db');
 const path = require('path');
+const authRoutes = require('./routes/auth');
 const { createBulletinBoardRouter } = require('./routes/bulletinBoard');
 
 const app = express();
@@ -45,6 +46,8 @@ app.get('/api/health/db', async (req, res, next) => {
   }
 });
 
+// SR-01, SR-04: login, logout and session handling
+app.use('/api/auth', authRoutes);
 // SR-12: public bulletin board where voters check their receipts
 app.use(createBulletinBoardRouter({ db }));
 
