@@ -1,13 +1,35 @@
+// eligibilityService.js
 // SR-05: Voter eligibility verification.
 // Before a voter gets a ballot we check 3 things:
 //   1. they exist and are actually a voter (not an admin etc.)
 //   2. the election is open right now
 //   3. they're enrolled for this election (and which division)
 // If all good, we send back their division so they get the right ballot.
+//
+// Options (used by SR-06 when saving a vote):
+//   client - the connection from SR-06's transaction, so this check
+//            happens inside the same transaction as saving the vote
+//   lock   - if true, we lock the election and enrolment rows (FOR SHARE)
+//            until the transaction finishes. This means an admin can't close
+//            the election or change the enrolment halfway through a vote.
+//            FOR SHARE still lets other voters vote at the same time.
 
 const db = require('../config/db');
 
-async function checkEligibility(userId, electionId) {
+async function checkEligibility(userId, electionId, options = {}) {
+  // use SR-06's transaction if we were given one, otherwise the normal pool
+  const runner = options.client || db;
+
+  // locking only makes sense inside a transaction, so don't allow it without one
+  if (options.lock && !options.client) {
+    throw new Error('lock needs a transaction client');
+  }
+
+  // this gets added to the end of the queries when we want to lock rows.
+  // it's safe to join it into the SQL because it's our own fixed text
+  // (either ' FOR SHARE' or nothing), never anything the user typed
+  const lockText = options.lock ? ' FOR SHARE' : '';
+
   // make sure the ids are actual whole numbers, not random text
   if (!Number.isInteger(userId) || !Number.isInteger(electionId)) {
     return { eligible: false, reason: 'invalid_input' };
@@ -15,7 +37,7 @@ async function checkEligibility(userId, electionId) {
 
   // 1. check the user exists and is a voter
   // ($1 is a parameter, so the input never gets mixed into the SQL = no SQL injection)
-  const userResult = await db.query('SELECT role FROM users WHERE id = $1', [userId]);
+  const userResult = await runner.query('SELECT role FROM users WHERE id = $1', [userId]);
 
   if (userResult.rowCount === 0) {
     return { eligible: false, reason: 'not_found' };
@@ -25,8 +47,10 @@ async function checkEligibility(userId, electionId) {
   }
 
   // 2. check the election exists and is open right now
-  const electionResult = await db.query(
-    'SELECT status, opens_at, closes_at FROM elections WHERE id = $1',
+  // (we always lock the election BEFORE the enrolment, same order every time,
+  //  so two transactions can't end up waiting on each other forever)
+  const electionResult = await runner.query(
+    'SELECT status, opens_at, closes_at FROM elections WHERE id = $1' + lockText,
     [electionId]
   );
 
@@ -48,8 +72,8 @@ async function checkEligibility(userId, electionId) {
   }
 
   // 3. check they're enrolled for this election, and get their division
-  const enrolResult = await db.query(
-    'SELECT division_id FROM enrolments WHERE user_id = $1 AND election_id = $2',
+  const enrolResult = await runner.query(
+    'SELECT division_id FROM enrolments WHERE user_id = $1 AND election_id = $2' + lockText,
     [userId, electionId]
   );
 

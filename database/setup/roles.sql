@@ -26,6 +26,19 @@ GRANT SELECT, INSERT, UPDATE ON users, enrolments TO :"app_user";
 -- No UPDATE or DELETE, so a vote can never be changed or removed once saved.
 GRANT SELECT, INSERT ON ballots TO :"app_user";
 
+-- SR-11: integrity hashes are append-only: the app can add and read them,
+-- never change or remove them (a trigger enforces this for every role too).
+GRANT SELECT, INSERT ON ballot_hashes TO :"app_user";
+
+-- SR-12: the public bulletin board. Rows can be added and read; the only column
+-- the app may change is status (accepted -> counted, enforced by a trigger).
+GRANT SELECT, INSERT ON bulletin_board TO :"app_user";
+GRANT UPDATE (status) ON bulletin_board TO :"app_user";
+
+-- SR-15: the app can only ADD audit rows (append-only; reading is for auditors, SR-16)
+GRANT INSERT ON audit_log TO :"app_user";
+GRANT USAGE ON SEQUENCE audit_log_id_seq TO :"app_user";
+
 -- SR-08: the app can ADD a "has voted" row but can NOT read the table.
 -- Reading both this and ballots could let someone match voters to ballots.
 -- To check if someone has voted, the app uses has_voted() instead.

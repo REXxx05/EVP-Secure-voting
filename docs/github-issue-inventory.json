@@ -1,0 +1,312 @@
+[
+  {
+    "requirement": "SR-01",
+    "number": 6,
+    "title": "SR-01: Verify voter eligibility for voting access",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/6",
+    "assignees": [
+      "dhanuhsbs1"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "dhanuhsbs1"
+  },
+  {
+    "requirement": "SR-02",
+    "number": 1,
+    "title": "SR-02: Multi-factor authentication for administrators",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/1",
+    "assignees": [
+      "REXxx05"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "REXxx05"
+  },
+  {
+    "requirement": "SR-03",
+    "number": 10,
+    "title": "SR-03: Access Control Based on Roles for AEC",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/10",
+    "assignees": [
+      "dhanuhsbs1"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "dhanuhsbs1"
+  },
+  {
+    "requirement": "SR-04",
+    "number": 12,
+    "title": "SR-04: Isolate and expire voter sessions",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/12",
+    "assignees": [
+      "dhanuhsbs1"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "dhanuhsbs1"
+  },
+  {
+    "requirement": "SR-05",
+    "number": 2,
+    "title": "SR-05: Voter eligibility verification",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/2",
+    "assignees": [
+      "REXxx05"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Medium"
+    ],
+    "state": "closed",
+    "exact_source_description_present": true,
+    "author": "REXxx05"
+  },
+  {
+    "requirement": "SR-06",
+    "number": 9,
+    "title": "SR-06 \u2014 Atomic Ballot Submission and Double-Vote Prevention",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/9",
+    "assignees": [
+      "Vinuthna1R"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "heybhava"
+  },
+  {
+    "requirement": "SR-07",
+    "number": 13,
+    "title": "SR-07: Validate ballots on client and server",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/13",
+    "assignees": [
+      "dhanuhsbs1"
+    ],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "dhanuhsbs1"
+  },
+  {
+    "requirement": "SR-08",
+    "number": 3,
+    "title": "SR-08: Voter anonymity \u2013 separate ballot from voter identity",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/3",
+    "assignees": [
+      "REXxx05"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - High"
+    ],
+    "state": "closed",
+    "exact_source_description_present": true,
+    "author": "REXxx05"
+  },
+  {
+    "requirement": "SR-09",
+    "number": 4,
+    "title": "SR-09: Encrypt voter data and ballots at rest (AES-256-GCM)",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/4",
+    "assignees": [
+      "REXxx05"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - High"
+    ],
+    "state": "closed",
+    "exact_source_description_present": true,
+    "author": "REXxx05"
+  },
+  {
+    "requirement": "SR-10",
+    "number": 5,
+    "title": "SR-10: Encrypt all traffic with TLS 1.3 and HSTS",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/5",
+    "assignees": [
+      "REXxx05"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Low"
+    ],
+    "state": "closed",
+    "exact_source_description_present": true,
+    "author": "REXxx05"
+  },
+  {
+    "requirement": "SR-11",
+    "number": 17,
+    "title": "SR-11 \u2014 SHA-256 Ballot Integrity",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/17",
+    "assignees": [
+      "Vinuthna1R"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-12",
+    "number": 18,
+    "title": "SR-12 \u2014 Digitally Signed Anonymous Voting Receipts",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/18",
+    "assignees": [
+      "Vinuthna1R"
+    ],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-13",
+    "number": 19,
+    "title": "SR-13 \u2014 Reconcile Accepted Ballots, Hash Logs and Tallies",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/19",
+    "assignees": [],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-14",
+    "number": 20,
+    "title": "SR-14 \u2014 Digitally Sign and Verify Election Results",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/20",
+    "assignees": [],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-15",
+    "number": 21,
+    "title": "SR-15 \u2014 Privileged-Action Audit Logging",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/21",
+    "assignees": [
+      "Vinuthna1R"
+    ],
+    "labels": [
+      "Priority - High",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-16",
+    "number": 22,
+    "title": "SR-16 \u2014 Append-Only Hash-Chained Audit Logs",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/22",
+    "assignees": [],
+    "labels": [
+      "Priority - High",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-17",
+    "number": 23,
+    "title": "SR-17 \u2014 Pseudonymous Privacy-Preserving Logs",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/23",
+    "assignees": [],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-18",
+    "number": 24,
+    "title": "SR-18 \u2014 Signed Candidate Orders and Exclusions",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/24",
+    "assignees": [],
+    "labels": [
+      "Priority - Low",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  },
+  {
+    "requirement": "SR-19",
+    "number": 14,
+    "title": "SR-19: Rate-limit the voting API",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/14",
+    "assignees": [
+      "dhanuhsbs1"
+    ],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - Medium"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "dhanuhsbs1"
+  },
+  {
+    "requirement": "SR-20",
+    "number": 25,
+    "title": "SR-20 \u2014 CI Security Pipeline and Signed Release SBOM",
+    "url": "https://github.com/REXxx05/EVP-Secure-voting/issues/25",
+    "assignees": [
+      "Vinuthna1R"
+    ],
+    "labels": [
+      "Priority - Medium",
+      "Complexity - High"
+    ],
+    "state": "open",
+    "exact_source_description_present": true,
+    "author": "Vinuthna1R"
+  }
+]
