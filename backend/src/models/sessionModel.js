@@ -27,13 +27,17 @@ async function createSession(userId) {
 
 // Looks up a session by its token. Returns undefined if there's no
 // matching, non-invalidated, non-expired session - callers treat that as "not logged in".
+// SR-02: also gets the user's role and whether this session has passed MFA,
+// so requireAuth can tell if an admin still needs to enter their code.
+
 async function findValidSession(token) {
   const result = await db.query(
-    `SELECT id, user_id, expires_at
-     FROM sessions
-     WHERE token = $1
-       AND invalidated = FALSE
-       AND expires_at > now()`,
+    `SELECT s.id, s.user_id, s.expires_at, s.mfa_verified, u.role
+     FROM sessions s
+     JOIN users u ON u.id = s.user_id
+     WHERE s.token = $1
+       AND s.invalidated = FALSE
+       AND s.expires_at > now()`,
     [token]
   );
 
@@ -59,10 +63,20 @@ async function invalidateSession(sessionId) {
   );
 }
 
+// SR-02: marks a session as having passed MFA.
+// Only called after the admin types a correct 6 digit code.
+async function markMfaVerified(sessionId) {
+  await db.query(
+    'UPDATE sessions SET mfa_verified = TRUE WHERE id = $1',
+    [sessionId]
+  );
+}
+
 module.exports = {
   createSession,
   findValidSession,
   touchSession,
   invalidateSession,
+  markMfaVerified,
   SESSION_IDLE_MINUTES
 };

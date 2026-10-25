@@ -5,7 +5,7 @@
 // tell jest to replace the real eligibility check with a fake one
 jest.mock('../../src/services/eligibilityService');
 const { checkEligibility } = require('../../src/services/eligibilityService');
-const requireEligibleVoter = require('../../src/middleware/requireEligiblevoter');
+const requireEligibleVoter = require('../../src/middleware/requireEligibleVoter');
 
 // makes a fake "res" object so we can check what status and message got sent
 function makeFakeRes() {

@@ -19,6 +19,15 @@ async function requireAuth(req, res, next) {
     await sessionModel.touchSession(session.id);
 
     req.session = session; // later code can read who is logged in
+
+    // the logged in user, in the shape the team agreed on (SR-05 and SR-06 use this).
+    // mfaVerified is for SR-02: admins can't use admin stuff until it's true.
+    req.user = {
+      id: session.user_id,
+      role: session.role,
+      mfaVerified: session.mfa_verified
+    };
+
     next();
   } catch (err) {
     next(err);

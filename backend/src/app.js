@@ -8,6 +8,7 @@ const helmet = require('helmet');
 const db = require('./config/db');
 const path = require('path');
 const authRoutes = require('./routes/auth');
+const mfaRoutes = require('./routes/mfa');    // SR-02
 const { createBulletinBoardRouter } = require('./routes/bulletinBoard');
 const { apiLimiter } = require('./middleware/rateLimiters');
 
@@ -53,6 +54,7 @@ app.get('/api/health/db', async (req, res, next) => {
 
 // SR-01, SR-04: login, logout and session handling
 app.use('/api/auth', authRoutes);
+app.use('/api/mfa', mfaRoutes);   // SR-02: admin MFA setup and code check
 // SR-12: public bulletin board where voters check their receipts
 app.use(createBulletinBoardRouter({ db }));
 
