@@ -7,7 +7,7 @@ const pool = require('../config/db');
 // Returns undefined if no such user exists - callers must handle that, not assume a user was found.
 async function findByUsername(username) {
   const result = await pool.query(
-    'SELECT id, username, password_hash, failed_login_attempts, locked_until, role FROM users WHERE username = $1',
+    'SELECT id, username, password_hash, failed_logins, locked_until, role FROM users WHERE username = $1',
     [username]
   );
   return result.rows[0];
@@ -26,20 +26,20 @@ const LOCKOUT_MINUTES = 15;
 // once it hits the limit, sets locked_until 15 minutes in the future.
 async function recordFailedLogin(userId) {
   const user = await pool.query(
-    'SELECT failed_login_attempts FROM users WHERE id = $1',
+    'SELECT failed_logins FROM users WHERE id = $1',
     [userId]
   );
-  const attempts = (user.rows[0]?.failed_login_attempts || 0) + 1;
+  const attempts = (user.rows[0]?.failed_logins || 0) + 1;
 
   if (attempts >= MAX_FAILED_ATTEMPTS) {
     const lockedUntil = new Date(Date.now() + LOCKOUT_MINUTES * 60 * 1000);
     await pool.query(
-      'UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
+      'UPDATE users SET failed_logins = $1, locked_until = $2 WHERE id = $3',
       [attempts, lockedUntil, userId]
     );
   } else {
     await pool.query(
-      'UPDATE users SET failed_login_attempts = $1 WHERE id = $2',
+      'UPDATE users SET failed_logins = $1 WHERE id = $2',
       [attempts, userId]
     );
   }
@@ -49,7 +49,7 @@ async function recordFailedLogin(userId) {
 // so a legitimate login always resets the slate.
 async function clearFailedLogins(userId) {
   await pool.query(
-    'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+    'UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = $1',
     [userId]
   );
 }
