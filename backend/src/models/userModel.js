@@ -1,13 +1,14 @@
 // SR-01: Voter authentication - user lookups and account lockout state.
+// This talks to the "users" table that database/01_schema.sql creates.
 
 const pool = require('../config/db');
 
-// Looks up a user by their login identifier (e.g. email).
-// Returns undefined if no such user exists - callers must handle that,
-async function findUserByEmail(email) {
+// Looks up a user by their login username.
+// Returns undefined if no such user exists - callers must handle that, not assume a user was found.
+async function findByUsername(username) {
   const result = await pool.query(
-    'SELECT id, email, password_hash, failed_login_attempts, locked_until, role FROM users WHERE email = $1',
-    [email]
+    'SELECT id, username, password_hash, failed_login_attempts, locked_until, role FROM users WHERE username = $1',
+    [username]
   );
   return result.rows[0];
 }
@@ -21,7 +22,8 @@ function isLocked(user) {
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_MINUTES = 15;
 
-// Called after a wrong password. Increments the failure counter and,once it hits the limit, sets locked_until 15 minutes in the future.
+// Called after a wrong password. Increments the failure counter and,
+// once it hits the limit, sets locked_until 15 minutes in the future.
 async function recordFailedLogin(userId) {
   const user = await pool.query(
     'SELECT failed_login_attempts FROM users WHERE id = $1',
@@ -43,7 +45,8 @@ async function recordFailedLogin(userId) {
   }
 }
 
-// Called after a correct login. Clears the failure count and any lock
+// Called after a correct login. Clears the failure count and any lock,
+// so a legitimate login always resets the slate.
 async function clearFailedLogins(userId) {
   await pool.query(
     'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
@@ -51,4 +54,4 @@ async function clearFailedLogins(userId) {
   );
 }
 
-module.exports = { findUserByEmail, isLocked, recordFailedLogin, clearFailedLogins };
+module.exports = { findByUsername, isLocked, recordFailedLogin, clearFailedLogins, LOCKOUT_MINUTES };
