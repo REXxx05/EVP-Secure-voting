@@ -21,4 +21,20 @@ async function purgeElectionBallots(electionId) {
   }
 }
 
-module.exports = { purgeElectionBallots };
+// audit_log is append-only too, so remove a generated admin's audit rows the same way
+async function purgeAuditRows(actorIds) {
+  const client = await adminDb.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL session_replication_role = 'replica'");
+    await client.query('DELETE FROM audit_log WHERE actor_id = ANY($1)', [actorIds]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+module.exports = { purgeElectionBallots, purgeAuditRows };

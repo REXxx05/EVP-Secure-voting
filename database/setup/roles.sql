@@ -35,6 +35,10 @@ GRANT SELECT, INSERT ON ballot_hashes TO :"app_user";
 GRANT SELECT, INSERT ON bulletin_board TO :"app_user";
 GRANT UPDATE (status) ON bulletin_board TO :"app_user";
 
+-- SR-15: the app can only ADD audit rows (append-only; reading is for auditors, SR-16)
+GRANT INSERT ON audit_log TO :"app_user";
+GRANT USAGE ON SEQUENCE audit_log_id_seq TO :"app_user";
+
 -- SR-08: the app can ADD a "has voted" row but can NOT read the table.
 -- Reading both this and ballots could let someone match voters to ballots.
 -- To check if someone has voted, the app uses has_voted() instead.
