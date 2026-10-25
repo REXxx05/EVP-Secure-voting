@@ -1,39 +1,36 @@
-
 // SR-01: Voter authentication.
 // Handles hashing and checking passwords so we never store or compare
 // plain text passwords anywhere in the app.
 //
-// We use bcrypt
+// We use argon2 (specifically argon2id, its default/recommended mode),
+// the current best-practice choice for password hashing:
+//  - adds a random salt automatically, so two users with the same
+//    password get different hashes
+//  - deliberately slow and memory-hard, which makes guessing passwords
+//    by brute force ,including with GPUs much more expensive
 
-const bcrypt = require('bcrypt');
-
-// Higher = slower to hash (more secure) but slower to log in.
-// 12 is a common default that's still fast enough for a web login.
-const SALT_ROUNDS = 12;
+const argon2 = require('argon2');
 
 // Turns a plain text password into a hash to store in the database.
-// Called once, when a user is created or resets their password.
 async function hashPassword(plainTextPassword) {
-  // Guard clause: fail loudly here rather than letting bcrypt throw
   if (!plainTextPassword || typeof plainTextPassword !== 'string') {
     throw new Error('Password must be a non-empty string');
   }
-
-  // bcrypt.hash() generates the salt internally and returns one string that contains both the salt and the hash, e.g. "$2b$12$...".
-  return bcrypt.hash(plainTextPassword, SALT_ROUNDS);
+  return argon2.hash(plainTextPassword);
 }
 
-// Checks a plain text password (typed at login) against the hash stored
-// Returns true/false - never throws just because the password is wrong,
+// Checks a plain text password against a stored hash.
+// Returns true/false, never throws just because the password is wrong
+// or the hash is malformed.
 async function verifyPassword(plainTextPassword, storedHash) {
-  // If either value is missing, it can't possibly match - skip bcrypt
   if (!plainTextPassword || !storedHash) {
     return false;
   }
-
-  // bcrypt.compare() re-hashes the given password using the salt
-  // embedded in storedHash, then checks if the result matches.
-  return bcrypt.compare(plainTextPassword, storedHash);
+  try {
+    return await argon2.verify(storedHash, plainTextPassword);
+  } catch {
+    return false;
+  }
 }
 
 module.exports = { hashPassword, verifyPassword };

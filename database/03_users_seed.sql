@@ -7,7 +7,7 @@
 
 INSERT INTO users (username, password_hash, role, failed_login_attempts, locked_until)
 VALUES
-  ('voter1', '$2b$12$zpbV3oddjROWijguoOuMBOFzFa8Aayyjq7M2TJszDcMZd/YESA71S', 'voter', 0, NULL),
-  ('admin1', '$2b$12$zpbV3oddjROWijguoOuMBOFzFa8Aayyjq7M2TJszDcMZd/YESA71S', 'admin', 0, NULL),
-  ('auditor1', '$2b$12$zpbV3oddjROWijguoOuMBOFzFa8Aayyjq7M2TJszDcMZd/YESA71S', 'auditor', 0, NULL)
+  ('voter1', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'voter', 0, NULL),
+  ('admin1', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'admin', 0, NULL),
+  ('auditor1', '$argon2id$v=19$m=65536,p=4,t=3$9VhwIzbkndpLSBFlrRV81w$aRIj4L4vV3XbPFvDAjpR3VkNMZMaZDx59nvCU30ETs', 'auditor', 0, NULL)
 ON CONFLICT (username) DO NOTHING;
