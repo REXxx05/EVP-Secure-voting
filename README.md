@@ -129,3 +129,20 @@ The API limits how many requests one client can make, so a flood or a password-g
 | Login, per account | failed logins per username | 10 per 15 minutes | `RATE_LIMIT_LOGIN_ACCOUNT_MAX` |
 
 The settings are optional. If they are missing, the defaults above are used. The limiters live in `backend/src/middleware/rateLimiters.js` and are tested in `backend/tests/unit/rateLimiters.test.js` and `backend/tests/integration/rateLimit.test.js`.
+
+## Role-based access control (SR-03)
+
+Every protected route runs two middleware in order:
+
+1. `requireAuth` checks the `x-session-token` header and sets `req.user = { id, role }` from the database. The role comes from the `users` table, never from the request.
+2. `requireRole(...roles)` allows only the listed roles. Anyone else gets `403`, and the denied attempt is written to `audit_log` (`access.denied`, outcome `failure`) before the response is sent. If the audit write fails, access is still denied.
+
+Example: `POST /api/admin/candidates/:id/exclusion` is admin-only.
+
+| Caller | Result |
+| --- | --- |
+| No session token | 401 |
+| voter / auditor | 403 + audit row |
+| admin | 200 + audit row |
+
+Tests: `backend/tests/unit/requireRole.test.js` and `backend/tests/integration/rbac.test.js`.

@@ -11,6 +11,7 @@ const authRoutes = require('./routes/auth');
 const mfaRoutes = require('./routes/mfa');    // SR-02
 const { createBulletinBoardRouter } = require('./routes/bulletinBoard');
 const { apiLimiter } = require('./middleware/rateLimiters');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -54,6 +55,8 @@ app.get('/api/health/db', async (req, res, next) => {
 
 // SR-01, SR-04: login, logout and session handling
 app.use('/api/auth', authRoutes);
+// SR-03: admin-only routes (role-checked)
+app.use('/api/admin', adminRoutes);
 app.use('/api/mfa', mfaRoutes);   // SR-02: admin MFA setup and code check
 // SR-12: public bulletin board where voters check their receipts
 app.use(createBulletinBoardRouter({ db }));
