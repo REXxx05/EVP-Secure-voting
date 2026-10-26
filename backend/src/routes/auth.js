@@ -6,6 +6,7 @@ const userModel = require('../models/userModel');
 const sessionModel = require('../models/sessionModel');
 const { verifyPassword } = require('../security/password');
 const requireAuth = require('../middleware/requireAuth');
+const { loginSchema } = require('../validation/ballotSchemas');
 const { loginIpLimiter, loginAccountLimiter } = require('../middleware/rateLimiters');
 
 
@@ -15,11 +16,12 @@ const router = express.Router();
 // Body: { username, password }
 router.post('/login', loginIpLimiter, loginAccountLimiter, async (req, res, next) => {
   try {
-    const { username, password } = req.body || {};
-
-    if (!username || !password) {
+    // SR-07: validate the input with zod before using it
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
       return res.status(400).json({ error: 'Username and password are required' });
     }
+    const { username, password } = parsed.data;
 
     const user = await userModel.findByUsername(username);
 
