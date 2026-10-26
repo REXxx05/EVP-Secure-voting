@@ -146,3 +146,23 @@ Example: `POST /api/admin/candidates/:id/exclusion` is admin-only.
 | admin | 200 + audit row |
 
 Tests: `backend/tests/unit/requireRole.test.js` and `backend/tests/integration/rbac.test.js`.
+
+## Ballot and input validation (SR-07)
+
+Input is validated on the server with [zod](https://zod.dev) before it is used. The browser checks are only there to give voters quick feedback.
+
+**Ballot payload**
+```json
+{ "house": { "ranking": [12, 7, 9] },
+  "senate": { "ranking": [31, 4, 22, 8, 15, 40] } }
+```
+- Whole-number candidate ids, no duplicates, at most 100 entries, no extra fields (`backend/src/validation/ballotSchemas.js`).
+- **House:** rank every non-excluded candidate in the voter's own division, once each.
+- **Senate:** rank at least 6 non-excluded candidates from this election in the voter's state.
+- `validateBallots` (`backend/src/services/ballotValidator.js`) returns `true` only for a valid ballot. Anything else, or a database error, rejects the ballot.
+
+**Login input** is checked by the same zod schemas: username and password must be plain text of a sensible length, and unexpected fields are rejected with 400 before any database lookup.
+
+**Client side:** `frontend/js/ballotValidation.js` mirrors the rules for instant feedback. The server never trusts it.
+
+Tests: `ballotValidator.test.js`, `ballotValidation.test.js`, `loginValidation.test.js` and `clientBallotValidation.test.js`.
