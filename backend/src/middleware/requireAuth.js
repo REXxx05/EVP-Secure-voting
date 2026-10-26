@@ -18,9 +18,16 @@ async function requireAuth(req, res, next) {
     // Active users stay logged in: push the 30-minute idle timeout forward
     await sessionModel.touchSession(session.id);
 
-    req.session = session;
-    // The rest of the app expects the logged-in user here: { id, role }
-    req.user = { id: session.user_id, role: session.role };
+    req.session = session; // later code can read who is logged in
+
+    // the logged in user, in the shape the team agreed on (SR-05 and SR-06 use this).
+    // mfaVerified is for SR-02: admins can't use admin stuff until it's true.
+    req.user = {
+      id: session.user_id,
+      role: session.role,
+      mfaVerified: session.mfa_verified
+    };
+
     next();
   } catch (err) {
     next(err);

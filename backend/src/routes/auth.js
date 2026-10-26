@@ -53,7 +53,14 @@ router.post('/login', loginIpLimiter, loginAccountLimiter, async (req, res, next
     // sends back on every later request to prove it's still logged in.
     const sessionToken = await sessionModel.createSession(user.id);
 
-    res.json({ userId: user.id, role: user.role, sessionToken });
+    // SR-02: anyone who isn't a voter (admins etc.) must do MFA next,
+    // so we tell the frontend to show the 6 digit code screen
+    res.json({
+      userId: user.id,
+      role: user.role,
+      sessionToken,
+      mfaRequired: user.role !== 'voter'
+    });
   } catch (err) {
     next(err);
   }
