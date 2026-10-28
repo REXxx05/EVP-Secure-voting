@@ -62,6 +62,14 @@ beforeAll(async () => {
   await login('admin1');
   await login('voter1');
   await login('auditor1');
+
+  // SR-02: staff now need MFA before admin routes. These tests are about
+  // roles (SR-03), not MFA, so we mark the staff sessions as MFA-verified here.
+  // MFA itself is tested in mfa.test.js and mfaRoutes.test.js.
+  await adminDb.query(
+    'UPDATE sessions SET mfa_verified = TRUE WHERE token = ANY($1)',
+    [[logins.admin1.token, logins.auditor1.token]]
+  );
 });
 
 afterAll(async () => {
@@ -87,6 +95,26 @@ describe('SR-03 role-based access control', () => {
 
     expect(res.status).toBe(401);
     expect(await candidateExcluded()).toBe(false);
+  });
+
+  test('SR-02: blocks an admin who only used a password (no MFA) with 403', async () => {
+    // log in as the admin again to get a NEW session that hasn't done MFA
+    const res1 = await request(app)
+      .post('/api/auth/login')
+      .send({ username: 'admin1', password: PASSWORD });
+    const passwordOnlyToken = res1.body.sessionToken;
+
+    const res = await request(app)
+      .post(exclusionUrl(candidateId))
+      .set('x-session-token', passwordOnlyToken)
+      .send({ excluded: true });
+
+    expect(res.status).toBe(403);
+    expect(res.body.mfaRequired).toBe(true);
+    expect(await candidateExcluded()).toBe(false);   // nothing changed
+
+    // log this extra session out so it doesn't hang around
+    await request(app).post('/api/auth/logout').set('x-session-token', passwordOnlyToken);
   });
 
   test('blocks a voter with 403, changes nothing and logs the denial within 1 second', async () => {
