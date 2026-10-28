@@ -5,6 +5,7 @@ const express = require('express');
 const requireAuth = require('../middleware/requireAuth');
 const requireRole = require('../middleware/requireRole');
 const { setCandidateExclusion } = require('../services/adminActions');
+const requireMfa = require('../middleware/requireMfa');   // SR-02
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ const router = express.Router();
 router.post(
   '/candidates/:id/exclusion',
   requireAuth,
+  requireMfa,          // SR-02: staff must pass MFA before any admin action
   requireRole('admin'),
   async (req, res, next) => {
     try {

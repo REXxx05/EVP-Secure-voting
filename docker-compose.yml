@@ -13,9 +13,6 @@ services:
       POSTGRES_USER: ${DB_ADMIN_USER}
       POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
-      # details for the limited app user , used by 02_roles.sh
-      APP_DB_USER: ${DB_USER}
-      APP_DB_PASSWORD: ${DB_PASSWORD}
 
     # Only open the port on our own machine (127.0.0.1),
     # so other devices on the wifi can't connect to the database
