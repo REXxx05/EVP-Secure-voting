@@ -1,55 +1,66 @@
+
 -- roles.sql
--- Creates the limited database user that the backend logs in as (least privilege).
--- We don't run this automatically. Run it with: bash database/setup/create_roles.sh
--- :"app_user", :'app_pass' and :"db_name" get filled in from .env when it runs,
--- so no password is ever saved in this file.
+-- Apply application permissions after all schema migrations.
+-- The application role must already exist.
+-- PostgreSQL psql variable required: app_user, db_name.
 
--- Create the app user with a password
-CREATE ROLE :"app_user" WITH LOGIN PASSWORD :'app_pass';
-
--- Nobody except the admin can create new tables
+-- Restrict schema creation.
 REVOKE CREATE ON SCHEMA public FROM PUBLIC;
 
--- Let the app user connect and see the tables
+-- Allow the application to connect and access public schema objects.
 GRANT CONNECT ON DATABASE :"db_name" TO :"app_user";
 GRANT USAGE ON SCHEMA public TO :"app_user";
 
--- Reference data: the app can read it and admins can add or edit it,
--- e.g. candidate entry and exclusion
+-- Reference data and candidate management.
 GRANT SELECT ON divisions TO :"app_user";
 GRANT SELECT, INSERT, UPDATE ON elections, candidates TO :"app_user";
 
--- Users and enrolments: read, add and update (e.g. failed login counts)
+-- Users and enrolments.
 GRANT SELECT, INSERT, UPDATE ON users, enrolments TO :"app_user";
 
--- Votes: the app can only ADD ballots and read them (for counting).
--- No UPDATE or DELETE, so a vote can never be changed or removed once saved.
+-- Ballots: append-only from the application.
 GRANT SELECT, INSERT ON ballots TO :"app_user";
 
--- SR-11: integrity hashes are append-only: the app can add and read them,
--- never change or remove them (a trigger enforces this for every role too).
+-- Ballot integrity records.
 GRANT SELECT, INSERT ON ballot_hashes TO :"app_user";
 
--- SR-12: the public bulletin board. Rows can be added and read; the only column
--- the app may change is status (accepted -> counted, enforced by a trigger).
+-- Public bulletin board.
 GRANT SELECT, INSERT ON bulletin_board TO :"app_user";
 GRANT UPDATE (status) ON bulletin_board TO :"app_user";
 
--- SR-15: the app can only ADD audit rows (append-only; reading is for auditors, SR-16)
+-- Audit logging: insert only.
+REVOKE ALL ON audit_log FROM :"app_user";
 GRANT INSERT ON audit_log TO :"app_user";
-GRANT USAGE ON SEQUENCE audit_log_id_seq TO :"app_user";
 
--- SR-08: the app can ADD a "has voted" row but can NOT read the table.
--- Reading both this and ballots could let someone match voters to ballots.
--- To check if someone has voted, the app uses has_voted() instead.
+-- Voter participation: insert only.
+REVOKE ALL ON voter_participation FROM :"app_user";
 GRANT INSERT ON voter_participation TO :"app_user";
 
--- Only the app user is allowed to use the has_voted() function
+-- Allow eligibility checks through the approved function.
 REVOKE ALL ON FUNCTION has_voted(INT, INT) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION has_voted(INT, INT) TO :"app_user";
 
--- Needed so INSERTs can use the auto-increment ids
+-- Application sessions.
+GRANT SELECT, INSERT, UPDATE ON sessions TO :"app_user";
+
+-- Voter privacy events: insert only.
+REVOKE ALL ON voter_privacy_log FROM :"app_user";
+GRANT INSERT ON voter_privacy_log TO :"app_user";
+
+-- Required identity sequences.
+GRANT USAGE ON SEQUENCE audit_log_id_seq TO :"app_user";
+GRANT USAGE ON SEQUENCE voter_privacy_log_id_seq TO :"app_user";
+
+-- Existing application inserts require identity sequence access.
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO :"app_user";
 
--- SR-04: the app needs to create, read and expire session rows, but never needs to delete the audit trail of past sessions.
-GRANT SELECT, INSERT, UPDATE ON sessions TO :"app_user";
+-- Ensure sensitive tables remain restricted after general grants.
+REVOKE SELECT, UPDATE, DELETE, TRUNCATE
+ON audit_log, voter_privacy_log, voter_participation
+FROM :"app_user";
+
+-- Keep integrity alert records restricted to the dedicated checker.
+REVOKE ALL ON audit_integrity_alerts FROM :"app_user";
+
+-- Keep audit chain state restricted.
+REVOKE ALL ON audit_chain_state FROM :"app_user";

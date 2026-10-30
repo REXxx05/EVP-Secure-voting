@@ -1,11 +1,4 @@
-# SR-20: every code change must pass this pipeline before merge.
-#   tests              - full Jest suite against a real PostgreSQL (schema + roles from /database)
-#   dependency-scan    - npm audit; the build FAILS on any dependency with CVSS >= 7.0
-#   static-analysis    - ESLint with eslint-plugin-security (every security rule blocks)
-#   codeql             - GitHub CodeQL SAST (results shown in the Security tab / PR checks)
-#   sbom               - builds a CycloneDX SBOM so a broken lockfile is caught on every change
-# Releases get a SIGNED SBOM in release-sbom.yml. Merging is blocked unless these jobs pass:
-# see docs/ci-security.md for the required branch ruleset (needs repository-owner rights).
+# SR-20: Security CI
 name: Security CI
 
 on:
@@ -32,7 +25,6 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          # Throwaway database that only exists inside this runner job
           POSTGRES_USER: evp_admin
           POSTGRES_PASSWORD: ci-admin-password
           POSTGRES_DB: evp
@@ -55,21 +47,40 @@ jobs:
       - name: Install dependencies
         working-directory: backend
         run: npm ci --ignore-scripts
-      - name: Create database schema and limited app role
+      - name: Create all isolated test databases and apply migrations
         env:
           PGHOST: localhost
           PGPASSWORD: ci-admin-password
         run: |
-          for f in database/0*.sql; do
-            psql -v ON_ERROR_STOP=1 -U evp_admin -d evp -f "$f"
-          done
+          set -euo pipefail
           psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
-            -v app_user=evp_app -v app_pass=ci-app-password -v db_name=evp \
-            -f database/setup/roles.sql
-      - name: Write throwaway test configuration (random per run, never reused)
+            -c "CREATE ROLE evp_app WITH LOGIN PASSWORD 'ci-app-password';"
+
+          for database in evp evp_sr18_compat evp_sr17_test; do
+            if [ "$database" != evp ]; then
+              createdb -U evp_admin "$database"
+            fi
+            echo "Setting up $database"
+            psql -v ON_ERROR_STOP=1 -U evp_admin -d "$database" -f database/01_schema.sql
+            for file in database/0*.sql database/1*.sql; do
+              if [ "$file" = database/01_schema.sql ]; then
+                continue
+              fi
+              echo "Applying $file to $database"
+              psql -v ON_ERROR_STOP=1 -U evp_admin -d "$database" -f "$file"
+            done
+            psql -v ON_ERROR_STOP=1 -U evp_admin -d "$database" \
+              -v app_user=evp_app -v db_name="$database" \
+              -f database/setup/roles.sql
+          done
+      - name: Write throwaway test configuration
         run: |
-          gen() { node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"; }
-          sign_key() { node -e "const c=require('crypto');console.log(Buffer.from(c.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'))"; }
+          gen() {
+            node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+          }
+          sign_key() {
+            node -e "const c=require('crypto');console.log(Buffer.from(c.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'))"
+          }
           {
             echo "PORT=3000"
             echo "DB_HOST=localhost"
@@ -82,13 +93,26 @@ jobs:
             echo "JWT_SECRET=$(gen)"
             echo "DATA_ENCRYPTION_KEY=$(gen)"
             echo "BALLOT_INTEGRITY_KEY=$(gen)"
+            echo "VOTER_LOG_HMAC_KEY=$(gen)"
             echo "RECEIPT_SIGNING_PRIVATE_KEY=$(sign_key)"
             echo "TLS_CERT_PATH=certs/cert.pem"
             echo "TLS_KEY_PATH=certs/key.pem"
           } > .env
-      - name: Run tests
+      - name: Run standard tests
         working-directory: backend
-        run: npm test -- --runInBand
+        env:
+          DB_NAME: evp
+        run: npm test -- --runInBand --testPathIgnorePatterns='tests/integration/(rbac|signedCandidateActions)\.test\.js'
+      - name: Run isolated RBAC compatibility tests
+        working-directory: backend
+        env:
+          DB_NAME: evp_sr18_compat
+        run: npm test -- --runInBand --runTestsByPath tests/integration/rbac.test.js
+      - name: Run isolated SR-18 signature tests
+        working-directory: backend
+        env:
+          DB_NAME: evp_sr17_test
+        run: npm test -- --runInBand --runTestsByPath tests/integration/signedCandidateActions.test.js
 
   dependency-scan:
     name: Dependency scan (CVSS >= 7.0 fails)
@@ -104,9 +128,6 @@ jobs:
       - name: npm audit (full tree, including dev dependencies)
         working-directory: backend
         run: |
-          # npm audit exits non-zero when it finds anything; the gate below decides.
-          # If the audit itself fails (offline, bad lockfile) the file is not a valid
-          # report and the gate exits 2, so an unreadable scan can never pass.
           npm audit --json > "$RUNNER_TEMP/audit.json" || true
           node scripts/check-audit.js "$RUNNER_TEMP/audit.json"
 
