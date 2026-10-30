@@ -7,6 +7,7 @@ const express = require('express');
 const helmet = require('helmet');
 const db = require('./config/db');
 const path = require('path');
+
 const authRoutes = require('./routes/auth');
 const mfaRoutes = require('./routes/mfa');    // SR-02
 const { createBulletinBoardRouter } = require('./routes/bulletinBoard');
@@ -18,67 +19,96 @@ const auditorRoutes = require('./routes/auditor');
 
 const app = express();
 
-// helmet adds a bunch of security headers to every response.
-// HSTS (SR-10) tells the browser to ONLY ever use HTTPS for our site
-// for the next year, even if someone types http:// or clicks an http link.
+// Helmet adds security headers to every response.
+// HSTS (SR-10) tells the browser to use HTTPS for the site.
 app.use(helmet({
   hsts: {
-    maxAge: 31536000,        // 1 year in seconds
+    maxAge: 31536000,
     includeSubDomains: true
   }
 }));
 
-// Lets express read JSON from request bodies.
-// We set a 10kb limit so someone can't send a huge request to slow the server down.
+// Allow Express to read JSON request bodies.
+// Limit request size to 10 KB to reduce abuse.
 app.use(express.json({ limit: '10kb' }));
 
-// Serve our frontend files (HTML, CSS, JS) from the frontend folder.
-// So http://localhost:3000/ opens frontend/index.html
+// Serve frontend files (HTML, CSS, JS).
 app.use(express.static(path.join(__dirname, '../../frontend')));
 
-// SR-19: limit how many API requests one IP address can make per minute.
-// Applied before the routes so every /api route is covered.
+// SR-19: Apply rate limiting to API requests.
 app.use('/api', apiLimiter);
 
-// Simple route to check the API is running.
-// If you go to http://localhost:3000/api/health you should see {"status":"ok"}
+// Check whether the API is running.
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Checks the backend can actually talk to the database
+// Check whether the database connection is working.
 app.get('/api/health/db', async (req, res, next) => {
   try {
     await db.query('SELECT 1');
-    res.json({ database: 'ok' });
+
+    res.json({
+      database: 'ok'
+    });
+
   } catch (err) {
-    next(err);   // sends it to our error handler at the bottom
+    next(err);
   }
 });
 
-// SR-01, SR-04: login, logout and session handling
+// SR-01, SR-04: Authentication and session handling.
 app.use('/api/auth', authRoutes);
-// SR-03: admin-only routes (role-checked)
+
+// SR-03: Administrator routes with role-based access control.
 app.use('/api/admin', adminRoutes);
 
 // SR-16: Auditor-only access to audit logs and integrity alerts.
 // Requires a valid session, completed MFA and the auditor role.
 app.use('/api/auditor', auditorRoutes);
-app.use('/api/mfa', mfaRoutes);   // SR-02: admin MFA setup and code check
-// SR-12: public bulletin board where voters check their receipts
+
+// SR-02: Administrator multi-factor authentication.
+app.use('/api/mfa', mfaRoutes);
+
+// SR-12: Public bulletin board for receipt verification.
 app.use(createBulletinBoardRouter({ db }));
 
-// If someone asks for a route that doesn't exist, just send back 404.
+// Return 404 for unknown routes.
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+  res.status(404).json({
+    error: 'Not found'
+  });
 });
 
-// Error handler - catches any errors from the routes above.
-// We print the real error in our terminal, but only send a generic message
-// to the user, so we don't leak details about our code (fail securely).
+// ============================================================
+// SR-17: Privacy-Safe Application Error Handling
+// ============================================================
+//
+// Security requirement:
+// - Do not expose voter identifiers in application logs.
+// - Do not log IP addresses.
+// - Do not log ballot contents or voting preferences.
+// - Do not log request bodies or session information.
+// - Do not print complete error objects that may contain
+//   sensitive information.
+//
+// The application records only a fixed error message.
+// Detailed exception information is not printed.
+//
+// This reduces the risk of exposing voter information
+// through application error logging.
+// ============================================================
+
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+
+  // Fixed message without sensitive information.
+  console.error('Internal application error');
+
+  // Return a generic error response.
+  res.status(500).json({
+    error: 'Internal server error'
+  });
+
 });
 
 module.exports = app;

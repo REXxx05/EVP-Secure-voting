@@ -1,14 +1,10 @@
-// SR-05: middleware that runs BEFORE the ballot and vote routes.
-// It stops anyone who isn't allowed to vote in this election.
-//
-// It needs Dhanush's login middleware (SR-04) to run first,
-// which puts the logged in user on the request as req.user = { id, role }.
-// We agreed on that as a team, so this will work once login is plugged in.
+// SR-05: Verify that the authenticated user is eligible to vote.
+// SR-17: Record eligibility denials using privacy-preserving logs.
 
+const db = require('../config/db');
 const { checkEligibility } = require('../services/eligibilityService');
+const { pseudonymiseVoter } = require('../security/voterPseudonym');
 
-// simple messages to show the voter for each reason
-// (we don't show any internal details)
 const messages = {
   not_found: 'We could not find this election or your account.',
   not_a_voter: 'Only voters can vote in an election.',
@@ -17,30 +13,66 @@ const messages = {
   invalid_input: 'Invalid request.'
 };
 
+// Record eligibility denials without storing direct voter identifiers.
+async function logEligibilityDenial(userId, role, reason) {
+  if (role !== 'voter') {
+    return;
+  }
+
+  try {
+    const pseudonym = pseudonymiseVoter(userId);
+
+    const safeReason = Object.prototype.hasOwnProperty.call(
+      messages,
+      reason
+    )
+      ? reason
+      : 'invalid_input';
+
+    await db.query(
+      `INSERT INTO voter_privacy_log
+       (voter_pseudonym, event_type, reason)
+       VALUES ($1, $2, $3)`,
+      [
+        pseudonym,
+        'eligibility.denied',
+        safeReason
+      ]
+    );
+
+  } catch (error) {
+    // Do not expose voter information or database errors.
+    console.error('Could not write eligibility-denied privacy log');
+  }
+}
+
 async function requireEligibleVoter(req, res, next) {
   try {
-    // if there's no user, they haven't logged in
     if (!req.user) {
-      return res.status(401).json({ error: 'Please log in first.' });
+      return res.status(401).json({
+        error: 'Please log in first.'
+      });
     }
 
-    // the election id comes from the url, e.g. /api/elections/1/vote
     const electionId = Number(req.params.electionId);
     const userId = Number(req.user.id);
 
     const result = await checkEligibility(userId, electionId);
 
     if (!result.eligible) {
-      // log that someone failed the check, but NOT who it was,
-      // so logs can't be used to identify voters (SR-17)
-      // TODO: switch this to the team audit log once SR-15 is done
-      console.warn('Eligibility check failed: ' + result.reason + ' (election ' + electionId + ')');
+      await logEligibilityDenial(
+        userId,
+        req.user.role,
+        result.reason
+      );
 
-      return res.status(403).json({ error: messages[result.reason] });
+      const message = messages[result.reason] || messages.invalid_input;
+
+      return res.status(403).json({
+        error: message
+      });
     }
 
-    // they passed, so save the election and division for the next step (SR-06).
-    // SR-06 should use this division and never one sent by the browser
     req.eligibility = {
       electionId: result.electionId,
       divisionId: result.divisionId
@@ -48,9 +80,8 @@ async function requireEligibleVoter(req, res, next) {
 
     next();
 
-  } catch (err) {
-    // send any error to our error handler (it doesn't leak details)
-    next(err);
+  } catch (error) {
+    next(error);
   }
 }
 
