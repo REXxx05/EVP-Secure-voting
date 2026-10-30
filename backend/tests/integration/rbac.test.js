@@ -5,7 +5,6 @@
  * SR-17: Privacy-preserving voter access-denied logging.
  * SR-18: Digitally signed administrator candidate actions.
  *
- * IMPORTANT:
  * Run only against the disposable evp_sr18_compat database.
  */
 
@@ -15,8 +14,7 @@ if (process.env.DB_NAME !== 'evp_sr18_compat') {
   );
 }
 
-const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
 
 const request = require('supertest');
 const app = require('../../src/app');
@@ -29,26 +27,15 @@ const {
 
 const {
   signCandidateAction,
+  keyIdOf,
   verifyCandidateAction
 } = require('../../src/security/adminSigning');
 
 const PASSWORD = 'Password123!';
 
-const adminPrivateKey = fs.readFileSync(
-  path.resolve(
-    __dirname,
-    '../../local-keys/admin1-private.pem'
-  ),
-  'utf8'
-);
-
-const adminPublicKey = fs.readFileSync(
-  path.resolve(
-    __dirname,
-    '../../local-keys/admin1-public.pem'
-  ),
-  'utf8'
-);
+const testKeyPair = crypto.generateKeyPairSync('ed25519');
+const adminPrivateKey = testKeyPair.privateKey;
+const adminPublicKey = testKeyPair.publicKey;
 
 let electionId;
 let divisionId;
@@ -56,9 +43,6 @@ let candidateId;
 
 const logins = {};
 
-/**
- * Log in a seeded user and save their session details.
- */
 async function login(username) {
   const res = await request(app)
     .post('/api/auth/login')
@@ -75,16 +59,10 @@ async function login(username) {
   };
 }
 
-/**
- * Build the candidate exclusion endpoint.
- */
 function exclusionUrl(id) {
   return `/api/admin/candidates/${id}/exclusion`;
 }
 
-/**
- * Count existing administrator audit records.
- */
 async function countAudit(actorId, outcome) {
   const result = await adminDb.query(
     `SELECT count(*)::int AS n
@@ -97,9 +75,6 @@ async function countAudit(actorId, outcome) {
   return result.rows[0].n;
 }
 
-/**
- * Count privacy-preserving voter access-denied events.
- */
 async function countVoterPrivacyLogs(pseudonym, eventType) {
   const result = await adminDb.query(
     `SELECT count(*)::int AS n
@@ -112,9 +87,6 @@ async function countVoterPrivacyLogs(pseudonym, eventType) {
   return result.rows[0].n;
 }
 
-/**
- * Check whether the candidate is excluded.
- */
 async function candidateExcluded() {
   const result = await adminDb.query(
     'SELECT excluded FROM candidates WHERE id = $1',
@@ -124,10 +96,6 @@ async function candidateExcluded() {
   return result.rows[0].excluded;
 }
 
-/**
- * Sign an exclusion or restoration action using
- * the acting administrator's private key.
- */
 function makeSignedExclusion(excluded) {
   const admin = logins.admin1;
 
@@ -156,9 +124,6 @@ function makeSignedExclusion(excluded) {
   return signedAction;
 }
 
-/**
- * Prepare test data.
- */
 beforeAll(async () => {
   const election = await adminDb.query(
     `INSERT INTO elections (name, status)
@@ -188,13 +153,11 @@ beforeAll(async () => {
 
   candidateId = candidate.rows[0].id;
 
-  // Authenticate seeded users.
   await login('admin1');
   await login('voter1');
   await login('auditor1');
 
-  // SR-02: Mark staff sessions as MFA-verified.
-  // MFA behaviour is tested separately below.
+  // Mark staff sessions as MFA-verified.
   await adminDb.query(
     `UPDATE sessions
      SET mfa_verified = TRUE
@@ -205,8 +168,21 @@ beforeAll(async () => {
     ]]
   );
 
-  // Confirm that the seeded administrator has a
-  // registered signing key in this test database.
+  // Register a temporary test signing key.
+  await adminDb.query(
+    `INSERT INTO admin_signing_keys
+       (admin_id, public_key_pem, key_id)
+     VALUES ($1, $2, $3)`,
+    [
+      logins.admin1.userId,
+      adminPublicKey.export({
+        type: 'spki',
+        format: 'pem'
+      }),
+      keyIdOf(adminPublicKey)
+    ]
+  );
+
   const registeredKey = await adminDb.query(
     `SELECT id
      FROM admin_signing_keys
@@ -218,15 +194,6 @@ beforeAll(async () => {
   expect(registeredKey.rowCount).toBeGreaterThan(0);
 });
 
-/**
- * Close sessions and database connections.
- *
- * SR-16 and SR-18 evidence must remain append-only.
- * We deliberately do not delete audit records,
- * signed actions, candidates, divisions or elections.
- *
- * This leaves test fixtures in the disposable database.
- */
 afterAll(async () => {
   try {
     for (const name of Object.keys(logins)) {
@@ -242,24 +209,15 @@ afterAll(async () => {
 
 describe('SR-03 role-based access control', () => {
 
-  /**
-   * Test 1:
-   * Unauthenticated requests must be rejected.
-   */
   test('rejects a request with no session token (401)', async () => {
     const res = await request(app)
       .post(exclusionUrl(candidateId))
       .send({ excluded: true });
 
     expect(res.status).toBe(401);
-
     expect(await candidateExcluded()).toBe(false);
   });
 
-  /**
-   * Test 2:
-   * Administrator access requires MFA.
-   */
   test(
     'SR-02: blocks an admin who only used a password (no MFA) with 403',
     async () => {
@@ -290,10 +248,6 @@ describe('SR-03 role-based access control', () => {
     }
   );
 
-  /**
-   * Test 3:
-   * SR-17 privacy-preserving voter access-denied logging.
-   */
   test(
     'blocks a voter with 403, changes nothing and records a pseudonymised denial within 1 second',
     async () => {
@@ -328,9 +282,7 @@ describe('SR-03 role-based access control', () => {
       );
 
       expect(res.status).toBe(403);
-
       expect(await candidateExcluded()).toBe(false);
-
       expect(after).toBe(before + 1);
 
       expect(
@@ -377,10 +329,6 @@ describe('SR-03 role-based access control', () => {
     }
   );
 
-  /**
-   * Test 4:
-   * Auditor access-denied events use the audit log.
-   */
   test(
     'blocks an auditor with 403 and logs the denial',
     async () => {
@@ -397,7 +345,6 @@ describe('SR-03 role-based access control', () => {
         .send({ excluded: true });
 
       expect(res.status).toBe(403);
-
       expect(await candidateExcluded()).toBe(false);
 
       expect(
@@ -406,10 +353,6 @@ describe('SR-03 role-based access control', () => {
     }
   );
 
-  /**
-   * Test 5:
-   * Invalid administrator input must be rejected.
-   */
   test(
     'rejects bad input from an admin with 400',
     async () => {
@@ -428,18 +371,10 @@ describe('SR-03 role-based access control', () => {
         .send({ excluded: true });
 
       expect(badId.status).toBe(400);
-
       expect(await candidateExcluded()).toBe(false);
     }
   );
 
-  /**
-   * Test 6:
-   * A verified administrator can exclude and restore
-   * a candidate using valid digital signatures.
-   *
-   * Both actions must be audited and signed.
-   */
   test(
     'lets an admin exclude and re-include a candidate (200) and audits it',
     async () => {
@@ -450,7 +385,6 @@ describe('SR-03 role-based access control', () => {
         'success'
       );
 
-      // SR-18: Sign the exclusion request.
       const excludeSignature = makeSignedExclusion(
         true
       );
@@ -464,10 +398,8 @@ describe('SR-03 role-based access control', () => {
         });
 
       expect(excludeRes.status).toBe(200);
-
       expect(await candidateExcluded()).toBe(true);
 
-      // SR-18: Sign the restoration request.
       const restoreSignature = makeSignedExclusion(
         false
       );
@@ -481,15 +413,12 @@ describe('SR-03 role-based access control', () => {
         });
 
       expect(includeRes.status).toBe(200);
-
       expect(await candidateExcluded()).toBe(false);
 
-      // SR-15: Both actions must be audited.
       expect(
         await countAudit(admin.userId, 'success')
       ).toBeGreaterThanOrEqual(before + 2);
 
-      // SR-18: Both actions must have signed evidence.
       const evidence = await adminDb.query(
         `SELECT action, signature
          FROM signed_candidate_actions

@@ -1,7 +1,4 @@
-
 # SR-20: Security CI
-# Runs automated tests, dependency scanning, ESLint, CodeQL and SBOM validation.
-
 name: Security CI
 
 on:
@@ -24,7 +21,6 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
-
     services:
       postgres:
         image: postgres:16
@@ -39,70 +35,52 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install dependencies
         working-directory: backend
         run: npm ci --ignore-scripts
-
-      - name: Create database schema and roles
+      - name: Create all isolated test databases and apply migrations
         env:
           PGHOST: localhost
           PGPASSWORD: ci-admin-password
         run: |
           set -euo pipefail
-
-          echo "Creating base schema..."
-          psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
-            -f database/01_schema.sql
-
-          echo "Creating application role before permission migrations..."
           psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
             -c "CREATE ROLE evp_app WITH LOGIN PASSWORD 'ci-app-password';"
 
-          echo "Applying remaining 0-series migrations..."
-          for f in database/0*.sql; do
-            if [ "$f" = "database/01_schema.sql" ]; then
-              continue
+          for database in evp evp_sr18_compat evp_sr17_test; do
+            if [ "$database" != evp ]; then
+              createdb -U evp_admin "$database"
             fi
-            echo "Applying $f"
-            psql -v ON_ERROR_STOP=1 -U evp_admin -d evp -f "$f"
+            echo "Setting up $database"
+            psql -v ON_ERROR_STOP=1 -U evp_admin -d "$database" -f database/01_schema.sql
+            for file in database/0*.sql database/1*.sql; do
+              if [ "$file" = database/01_schema.sql ]; then
+                continue
+              fi
+              echo "Applying $file to $database"
+              psql -v ON_ERROR_STOP=1 -U evp_admin -d "$database" -f "$file"
+            done
+            psql -v ON_ERROR_STOP=1 -U evp_admin -d "$database" \
+              -v app_user=evp_app -v db_name="$database" \
+              -f database/setup/roles.sql
           done
-
-          echo "Applying 10-series migrations..."
-          for f in database/1*.sql; do
-            echo "Applying $f"
-            psql -v ON_ERROR_STOP=1 -U evp_admin -d evp -f "$f"
-          done
-
-          echo "Applying least-privilege application permissions..."
-          psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
-            -v app_user=evp_app \
-            -v db_name=evp \
-            -f database/setup/roles.sql
-
-          echo "Database setup completed."
-
       - name: Write throwaway test configuration
         run: |
           gen() {
             node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
           }
-
           sign_key() {
             node -e "const c=require('crypto');console.log(Buffer.from(c.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'))"
           }
-
           {
             echo "PORT=3000"
             echo "DB_HOST=localhost"
@@ -120,25 +98,33 @@ jobs:
             echo "TLS_CERT_PATH=certs/cert.pem"
             echo "TLS_KEY_PATH=certs/key.pem"
           } > .env
-
-      - name: Run tests
+      - name: Run standard tests
         working-directory: backend
-        run: npm test -- --runInBand
+        env:
+          DB_NAME: evp
+        run: npm test -- --runInBand --testPathIgnorePatterns='tests/integration/(rbac|signedCandidateActions)\.test\.js'
+      - name: Run isolated RBAC compatibility tests
+        working-directory: backend
+        env:
+          DB_NAME: evp_sr18_compat
+        run: npm test -- --runInBand --runTestsByPath tests/integration/rbac.test.js
+      - name: Run isolated SR-18 signature tests
+        working-directory: backend
+        env:
+          DB_NAME: evp_sr17_test
+        run: npm test -- --runInBand --runTestsByPath tests/integration/signedCandidateActions.test.js
 
   dependency-scan:
     name: Dependency scan (CVSS >= 7.0 fails)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-
       - name: npm audit (full tree, including dev dependencies)
         working-directory: backend
         run: |
@@ -149,22 +135,18 @@ jobs:
     name: Static analysis (ESLint security)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: backend/package-lock.json
-
       - name: Install dependencies
         working-directory: backend
         run: npm ci --ignore-scripts
-
       - name: Lint (any finding fails the build)
         working-directory: backend
         run: npx eslint . --max-warnings 0
@@ -173,22 +155,18 @@ jobs:
     name: CodeQL
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     permissions:
       contents: read
       security-events: write
       actions: read
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-
       - uses: github/codeql-action/init@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           languages: javascript-typescript
           queries: security-extended
-
       - uses: github/codeql-action/analyze@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           category: /language:javascript-typescript
@@ -197,16 +175,13 @@ jobs:
     name: SBOM builds
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-
       - name: Generate CycloneDX SBOM from the lockfile
         working-directory: backend
         run: |
