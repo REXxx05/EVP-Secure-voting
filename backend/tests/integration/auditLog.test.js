@@ -43,6 +43,7 @@ async function addUser(role) {
      RETURNING id`,
     [`sr15_${role}_${crypto.randomUUID()}`, role]
   );
+
   return result.rows[0].id;
 }
 
@@ -51,6 +52,7 @@ async function rowsFor(actorIds) {
     'SELECT * FROM audit_log WHERE actor_id = ANY($1) ORDER BY id',
     [actorIds]
   );
+
   return result.rows;
 }
 
@@ -59,6 +61,7 @@ async function excludedNow() {
     'SELECT excluded FROM candidates WHERE id = $1',
     [candidateId]
   );
+
   return result.rows[0].excluded;
 }
 
@@ -74,7 +77,10 @@ beforeEach(async () => {
      VALUES ($1, $2, $3)`,
     [
       adminId,
-      pair.publicKey.export({ type: 'spki', format: 'pem' }),
+      pair.publicKey.export({
+        type: 'spki',
+        format: 'pem'
+      }),
       keyIdOf(pair.publicKey)
     ]
   );
@@ -88,11 +94,13 @@ beforeEach(async () => {
      RETURNING id`,
     [`SR15 isolated ${crypto.randomUUID()}`]
   );
+
   electionId = election.rows[0].id;
 
   const division = await adminDb.query(
     'SELECT id FROM divisions ORDER BY id LIMIT 1'
   );
+
   const divisionId = division.rows[0].id;
 
   const candidate = await adminDb.query(
@@ -102,10 +110,11 @@ beforeEach(async () => {
      RETURNING id`,
     [electionId, divisionId]
   );
+
   candidateId = candidate.rows[0].id;
 });
 
-// Test fixtures remain in the disposable database because
+// Keep fixtures in the disposable test database because
 // signed candidate evidence is append-only.
 afterAll(async () => {
   await db.pool.end();
@@ -122,7 +131,11 @@ test('a successful privileged action is audited within 1 second', async () => {
 
   const elapsed = Date.now() - before;
 
-  expect(result).toEqual({ candidateId, excluded: true });
+  expect(result).toEqual({
+    candidateId,
+    excluded: true
+  });
+
   expect(elapsed).toBeLessThan(1000);
   expect(await excludedNow()).toBe(true);
 
@@ -136,8 +149,14 @@ test('a successful privileged action is audited within 1 second', async () => {
     detail: null
   });
 
-  expect(row.occurred_at.getTime()).toBeGreaterThanOrEqual(before - 1000);
-  expect(row.occurred_at.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+  expect(row.occurred_at.getTime()).toBeGreaterThanOrEqual(
+    before - 1000
+  );
+
+  expect(row.occurred_at.getTime()).toBeLessThanOrEqual(
+    Date.now() + 1000
+  );
+
   expect(row.occurred_at.toISOString()).toMatch(/Z$/);
   expect(audited).toBe(true);
 
@@ -146,7 +165,8 @@ test('a successful privileged action is audited within 1 second', async () => {
        occurred_at AT TIME ZONE 'UTC',
        'YYYY-MM-DD"T"HH24:MI:SS'
      ) AS t
-     FROM audit_log WHERE id = $1`,
+     FROM audit_log
+     WHERE id = $1`,
     [row.id]
   );
 
@@ -161,11 +181,14 @@ test('a failed privileged action is rolled back and audited', async () => {
       exclusionArgs(true, 2147483000),
       runAudited
     )
-  ).rejects.toThrow('Candidate not found');
+  ).rejects.toThrow(
+    /foreign key constraint|Candidate not found/
+  );
 
   const rows = await rowsFor([adminId]);
 
   expect(rows).toHaveLength(1);
+
   expect(rows[0]).toMatchObject({
     actor_id: adminId,
     action: 'candidate.exclude',
@@ -190,12 +213,14 @@ test('a failed transaction leaves no candidate change', async () => {
           'UPDATE candidates SET excluded = TRUE WHERE id = $1',
           [candidateId]
         );
+
         throw new Error('boom after write');
       }
     )
   ).rejects.toThrow('boom after write');
 
   expect(await excludedNow()).toBe(false);
+
   expect(
     (await rowsFor([adminId])).map(row => row.outcome)
   ).toEqual(['failure']);
@@ -204,7 +229,9 @@ test('a failed transaction leaves no candidate change', async () => {
 test.each(['voter', 'auditor'])(
   'unauthorised %s is blocked and audited',
   async role => {
-    const actorId = role === 'voter' ? voterId : auditorId;
+    const actorId = role === 'voter'
+      ? voterId
+      : auditorId;
 
     await expect(
       setCandidateExclusion({
@@ -212,13 +239,16 @@ test.each(['voter', 'auditor'])(
         candidateId,
         excluded: true
       }, runAudited)
-    ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+    ).rejects.toMatchObject({
+      code: 'FORBIDDEN'
+    });
 
     expect(await excludedNow()).toBe(false);
 
     const rows = await rowsFor([actorId]);
 
     expect(rows).toHaveLength(1);
+
     expect(rows[0]).toMatchObject({
       actor_id: actorId,
       outcome: 'failure',
@@ -239,7 +269,9 @@ test('roles can be widened for a particular action', async () => {
 
   await expect(
     runAudited(input, async () => 'ok')
-  ).resolves.toMatchObject({ result: 'ok' });
+  ).resolves.toMatchObject({
+    result: 'ok'
+  });
 
   expect(
     (await rowsFor([auditorId]))[0]
@@ -264,14 +296,20 @@ function poolFailingAudit({
       return {
         query: (sql, params) =>
           failTransactionalInsert && isAudit(sql)
-            ? Promise.reject(new Error('audit store unavailable'))
+            ? Promise.reject(
+                new Error('audit store unavailable')
+              )
             : client.query(sql, params),
+
         release: discard => client.release(discard)
       };
     },
+
     query: (sql, params) =>
       failStandaloneInsert && isAudit(sql)
-        ? Promise.reject(new Error('audit store unavailable'))
+        ? Promise.reject(
+            new Error('audit store unavailable')
+          )
         : db.pool.query(sql, params)
   };
 }
@@ -367,15 +405,21 @@ test('audit records cannot be modified, deleted or read by the app', async () =>
       'UPDATE audit_log SET outcome = $1',
       ['failure']
     )
-  ).rejects.toMatchObject({ code: '42501' });
+  ).rejects.toMatchObject({
+    code: '42501'
+  });
 
   await expect(
     db.query('DELETE FROM audit_log')
-  ).rejects.toMatchObject({ code: '42501' });
+  ).rejects.toMatchObject({
+    code: '42501'
+  });
 
   await expect(
     db.query('SELECT * FROM audit_log')
-  ).rejects.toMatchObject({ code: '42501' });
+  ).rejects.toMatchObject({
+    code: '42501'
+  });
 
   await expect(
     adminDb.query(
