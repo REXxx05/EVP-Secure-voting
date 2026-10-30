@@ -4,7 +4,7 @@ require('../config/db');
 const KEY_NAME = 'VOTER_LOG_HMAC_KEY';
 
 function getHmacKey() {
-  const encoded = process.env[KEY_NAME];
+  const encoded = process.env.VOTER_LOG_HMAC_KEY;
 
   if (typeof encoded !== 'string') {
     throw new Error(`${KEY_NAME} is not configured`);

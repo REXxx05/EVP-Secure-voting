@@ -1,11 +1,7 @@
-# SR-20: every code change must pass this pipeline before merge.
-#   tests              - full Jest suite against a real PostgreSQL (schema + roles from /database)
-#   dependency-scan    - npm audit; the build FAILS on any dependency with CVSS >= 7.0
-#   static-analysis    - ESLint with eslint-plugin-security (every security rule blocks)
-#   codeql             - GitHub CodeQL SAST (results shown in the Security tab / PR checks)
-#   sbom               - builds a CycloneDX SBOM so a broken lockfile is caught on every change
-# Releases get a SIGNED SBOM in release-sbom.yml. Merging is blocked unless these jobs pass:
-# see docs/ci-security.md for the required branch ruleset (needs repository-owner rights).
+
+# SR-20: Security CI
+# Runs automated tests, dependency scanning, ESLint, CodeQL and SBOM validation.
+
 name: Security CI
 
 on:
@@ -28,11 +24,11 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     services:
       postgres:
         image: postgres:16
         env:
-          # Throwaway database that only exists inside this runner job
           POSTGRES_USER: evp_admin
           POSTGRES_PASSWORD: ci-admin-password
           POSTGRES_DB: evp
@@ -43,33 +39,70 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: backend/package-lock.json
+
       - name: Install dependencies
         working-directory: backend
         run: npm ci --ignore-scripts
-      - name: Create database schema and limited app role
+
+      - name: Create database schema and roles
         env:
           PGHOST: localhost
           PGPASSWORD: ci-admin-password
         run: |
+          set -euo pipefail
+
+          echo "Creating base schema..."
+          psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
+            -f database/01_schema.sql
+
+          echo "Creating application role before permission migrations..."
+          psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
+            -c "CREATE ROLE evp_app WITH LOGIN PASSWORD 'ci-app-password';"
+
+          echo "Applying remaining 0-series migrations..."
           for f in database/0*.sql; do
+            if [ "$f" = "database/01_schema.sql" ]; then
+              continue
+            fi
+            echo "Applying $f"
             psql -v ON_ERROR_STOP=1 -U evp_admin -d evp -f "$f"
           done
+
+          echo "Applying 10-series migrations..."
+          for f in database/1*.sql; do
+            echo "Applying $f"
+            psql -v ON_ERROR_STOP=1 -U evp_admin -d evp -f "$f"
+          done
+
+          echo "Applying least-privilege application permissions..."
           psql -v ON_ERROR_STOP=1 -U evp_admin -d evp \
-            -v app_user=evp_app -v app_pass=ci-app-password -v db_name=evp \
+            -v app_user=evp_app \
+            -v db_name=evp \
             -f database/setup/roles.sql
-      - name: Write throwaway test configuration (random per run, never reused)
+
+          echo "Database setup completed."
+
+      - name: Write throwaway test configuration
         run: |
-          gen() { node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"; }
-          sign_key() { node -e "const c=require('crypto');console.log(Buffer.from(c.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'))"; }
+          gen() {
+            node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+          }
+
+          sign_key() {
+            node -e "const c=require('crypto');console.log(Buffer.from(c.generateKeyPairSync('ed25519').privateKey.export({type:'pkcs8',format:'pem'})).toString('base64'))"
+          }
+
           {
             echo "PORT=3000"
             echo "DB_HOST=localhost"
@@ -82,10 +115,12 @@ jobs:
             echo "JWT_SECRET=$(gen)"
             echo "DATA_ENCRYPTION_KEY=$(gen)"
             echo "BALLOT_INTEGRITY_KEY=$(gen)"
+            echo "VOTER_LOG_HMAC_KEY=$(gen)"
             echo "RECEIPT_SIGNING_PRIVATE_KEY=$(sign_key)"
             echo "TLS_CERT_PATH=certs/cert.pem"
             echo "TLS_KEY_PATH=certs/key.pem"
           } > .env
+
       - name: Run tests
         working-directory: backend
         run: npm test -- --runInBand
@@ -94,19 +129,19 @@ jobs:
     name: Dependency scan (CVSS >= 7.0 fails)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+
       - name: npm audit (full tree, including dev dependencies)
         working-directory: backend
         run: |
-          # npm audit exits non-zero when it finds anything; the gate below decides.
-          # If the audit itself fails (offline, bad lockfile) the file is not a valid
-          # report and the gate exits 2, so an unreadable scan can never pass.
           npm audit --json > "$RUNNER_TEMP/audit.json" || true
           node scripts/check-audit.js "$RUNNER_TEMP/audit.json"
 
@@ -114,18 +149,22 @@ jobs:
     name: Static analysis (ESLint security)
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: backend/package-lock.json
+
       - name: Install dependencies
         working-directory: backend
         run: npm ci --ignore-scripts
+
       - name: Lint (any finding fails the build)
         working-directory: backend
         run: npx eslint . --max-warnings 0
@@ -134,18 +173,22 @@ jobs:
     name: CodeQL
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     permissions:
       contents: read
       security-events: write
       actions: read
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
       - uses: github/codeql-action/init@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           languages: javascript-typescript
           queries: security-extended
+
       - uses: github/codeql-action/analyze@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
           category: /language:javascript-typescript
@@ -154,13 +197,16 @@ jobs:
     name: SBOM builds
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
+
       - name: Generate CycloneDX SBOM from the lockfile
         working-directory: backend
         run: |
