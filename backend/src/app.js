@@ -13,6 +13,9 @@ const { createBulletinBoardRouter } = require('./routes/bulletinBoard');
 const { apiLimiter } = require('./middleware/rateLimiters');
 const adminRoutes = require('./routes/admin');
 
+// SR-16: Auditor-only access to audit logs and integrity alerts.
+const auditorRoutes = require('./routes/auditor');
+
 const app = express();
 
 // helmet adds a bunch of security headers to every response.
@@ -57,6 +60,10 @@ app.get('/api/health/db', async (req, res, next) => {
 app.use('/api/auth', authRoutes);
 // SR-03: admin-only routes (role-checked)
 app.use('/api/admin', adminRoutes);
+
+// SR-16: Auditor-only access to audit logs and integrity alerts.
+// Requires a valid session, completed MFA and the auditor role.
+app.use('/api/auditor', auditorRoutes);
 app.use('/api/mfa', mfaRoutes);   // SR-02: admin MFA setup and code check
 // SR-12: public bulletin board where voters check their receipts
 app.use(createBulletinBoardRouter({ db }));

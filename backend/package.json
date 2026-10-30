@@ -11,7 +11,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "lint": "eslint .",
-    "audit:cvss": "npm audit --json | node scripts/check-audit.js"
+    "audit:cvss": "npm audit --json | node scripts/check-audit.js",
+    "audit:monitor": "node scripts/audit-integrity-scheduler.js"
   },
   "keywords": [],
   "author": "",
